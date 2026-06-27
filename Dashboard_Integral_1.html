@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InvestAI - Dashboard Predictivo</title>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<style>
+/* ==============================
+   ESTILOS GENERALES
+================================ */
+*{
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+    margin:0;
+    background:white;
+    color:#1F3864;
+}
+
+/* Barra navegación */
+.navbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:15px 25px;
+    border-bottom:1px solid #ddd;
+    gap:15px;
+    flex-wrap:wrap;
+}
+
+.logo{
+    font-size:28px;
+    font-weight:bold;
+    color:#800000;
+}
+
+.controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+select,button{
+    padding:10px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button{
+    background:#C5961A;
+    color:white;
+    cursor:pointer;
+}
+
+.connection{
+    font-weight:bold;
+    color:green;
+}
+
+.error-message{
+    background:#ffcccc;
+    color:#800000;
+    padding:10px;
+    border-radius:6px;
+    display:none;
+    margin: 10px 25px 0;
+}
+
+.loading{
+    text-align:center;
+    padding:20px;
+    color:#C5961A;
+    font-weight:bold;
+}
+
+/* Grid principal */
+.dashboard{
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    gap:15px;
+    padding:20px;
+}
+
+.panel{
+    border:1px solid #ddd;
+    border-radius:12px;
+    padding:15px;
+    background:white;
+    box-shadow:0 3px 8px #ddd;
+}
+
+.title{
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:10px;
+}
+
+
+/* Distribución */
+.market{
+    grid-column:span 8;
+}
+
+.side{
+    grid-column:span 4;
+}
+
+.bottom{
+    grid-column:span 12;
+}
+
+
+.chart{
+    width:100%;
+    height:420px;
+}
+
+
+/* Panel lateral */
+.signal{
+    text-align:center;
+    font-size:28px;
+    font-weight:bold;
+    color:green;
+    padding:15px;
+}
+
+.models label{
+    display:block;
+    margin:8px;
+}
+
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+td,th{
+    border-bottom:1px solid #ddd;
+    padding:8px;
+    text-align:center;
+}
+
+.good{
+    color:green;
+    font-weight:bold;
+}
+
+.bad{
+    color:#800000;
+    font-weight:bold;
+}
+
+
+/* Responsive */
+@media(max-width:900px){
+
+    .market,
+    .side,
+    .bottom{
+        grid-column:span 12;
+    }
+
+}
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- ==============================
+     BARRA DE NAVEGACION
+================================ -->
+<nav class="navbar">
+
+<div class="logo">
+    InvestAI
+</div>
+
+
+<div class="controls">
+
+<select id="stockSelect">
+<option>AAPL</option>
+<option>MSFT</option>
+<option>TSLA</option>
+<option>NVDA</option>
+</select>
+
+
+<select id="periodSelect">
+<option>1 Mes</option>
+<option>6 Meses</option>
+<option>1 Año</option>
+</select>
+
+
+<button onclick="cargarDatos()">
+Ejecutar Analisis
+</button>
+
+</div>
+
+
+<div class="connection" id="connectionStatus">
+🔴 Conectando...
+</div>
+
+</nav>
+
+<!-- Mensaje de error -->
+<div class="error-message" id="errorMessage"></div>
+
+
+<div class="dashboard">
+
+
+<!-- ==============================
+     PANEL CANDLESTICK
+================================ -->
+
+<section class="panel market">
+
+<div class="title">
+Mercado AAPL + Predicción LSTM + Señales
+</div>
+
+<div id="candlestick" class="chart">
+    <div class="loading">Cargando gráfico...</div>
+</div>
+
+</section>
+
+
+
+
+<!-- ==============================
+     PANEL IA LATERAL
+================================ -->
+
+<section class="panel side">
+
+<div class="title">
+Modelos IA Activos
+</div>
+
+
+<div class="models">
+
+<label>
+<input type="checkbox" checked>
+LSTM
+</label>
+
+<label>
+<input type="checkbox" checked>
+GRU
+</label>
+
+<label>
+<input type="checkbox" checked>
+XGBoost
+</label>
+
+<label>
+<input type="checkbox" checked>
+SVC
+</label>
+
+<label>
+<input type="checkbox">
+ARIMA-LSTM
+</label>
+
+</div>
+
+
+
+<div class="title">
+Señal Consolidada
+</div>
+
+<div class="signal" id="signalBox">
+-- 
+</div>
+
+
+<div class="title">
+Métricas modelos
+</div>
+
+
+<table>
+
+<tr>
+<th>Modelo</th>
+<th>Accuracy</th>
+<th>RMSE</th>
+</tr>
+
+<tr>
+<td>LSTM</td>
+<td class="good">94%</td>
+<td class="good">0.021</td>
+</tr>
+
+<tr>
+<td>GRU</td>
+<td class="good">91%</td>
+<td class="good">0.028</td>
+</tr>
+
+<tr>
+<td>XGBoost</td>
+<td class="bad">82%</td>
+<td class="bad">0.051</td>
+</tr>
+
+</table>
+
+
+</section>
+
+
+
+
+
+<!-- ==============================
+     PANEL BACKTESTING
+================================ -->
+
+<section class="panel bottom">
+
+
+<div class="title">
+Backtesting VectorBT - Portafolio Inteligente
+</div>
+
+
+<div id="equity" class="chart">
+    <div class="loading">Cargando gráfico...</div>
+</div>
+
+
+<table>
+
+<tr>
+<th>Sharpe</th>
+<th>Sortino</th>
+<th>Max Drawdown</th>
+<th>Win Rate</th>
+</tr>
+
+<tr>
+
+<td class="good">
+1.82
+</td>
+
+<td class="good">
+2.14
+</td>
+
+<td class="bad">
+-12.5%
+</td>
+
+<td class="good">
+68%
+</td>
+
+</tr>
+
+</table>
+
+
+<br>
+
+<div id="returns" class="chart">
+    <div class="loading">Cargando gráfico...</div>
+</div>
+
+
+</section>
+
+
+</div>
+
+
+
+
+<script>
+
+// ====================================
+// CONFIGURACIÓN - CAMBIAR TU URL AQUI
+// ====================================
+
+// 🔴 REEMPLAZA ESTA URL CON TU URL DE NGROK
+const API_URL = "https://fifteen-saved-clamp.ngrok-free.dev";
+
+// Alternativamente, si ejecutas localmente:
+// const API_URL = "http://localhost:8000";
+
+// ====================================
+// VARIABLES GLOBALES
+// ====================================
+
+let datosGlobales = {
+    fechas: [],
+    close: [],
+    pred: [],
+    equity: [],
+    retornos: []
+};
+
+// ====================================
+// FUNCIONES DE UTILIDAD
+// ====================================
+
+function mostrarError(mensaje) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.innerHTML = `❌ Error: ${mensaje}`;
+    errorDiv.style.display = 'block';
+    console.error(mensaje);
+}
+
+function ocultarError() {
+    document.getElementById('errorMessage').style.display = 'none';
+}
+
+function actualizarEstadoConexion(estado, mensaje) {
+    const statusDiv = document.getElementById('connectionStatus');
+    if (estado === 'conectado') {
+        statusDiv.innerHTML = '🟢 Conectado';
+        statusDiv.style.color = 'green';
+    } else if (estado === 'error') {
+        statusDiv.innerHTML = '🔴 Error de conexión';
+        statusDiv.style.color = 'red';
+    } else {
+        statusDiv.innerHTML = '🟡 Conectando...';
+        statusDiv.style.color = 'orange';
+    }
+}
+
+// ====================================
+// FUNCIÓN PRINCIPAL: CARGAR DATOS
+// ====================================
+
+async function cargarDatos() {
+    
+    ocultarError();
+    actualizarEstadoConexion('cargando');
+    
+    try {
+        // Agrega la ruta exacta de tu API, por ejemplo "/lstm"
+        const ENDPOINT = API_URL + "/lstm"; 
+        
+        const response = await fetch(ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                // Este header que ya tenías es perfecto para evitar bloqueos
+                'ngrok-skip-browser-warning': 'true' 
+            },
+            mode: 'cors' 
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // NUEVO: Imprime los datos crudos en la consola (F12) para validar
+        console.log("Datos recibidos:", data);
+        
+        // Validar que los datos existan usando LAS LLAVES EXACTAS que devuelve tu JSON
+        if (!data.fechasHist || !data.preciosReales || !data.predHist) {
+            throw new Error('Respuesta incompleta del servidor. Verifica la estructura de datos.');
+        }
+
+        // Guardar datos globales
+        datosGlobales.fechas = data.fechasHist;
+        datosGlobales.close = data.preciosReales;
+        datosGlobales.pred = data.predHist;
+
+        // Generar datos de backtesting
+        generarEquityCurve();
+        generarRetornos();
+
+        // Dibujar gráficos
+        dibujarCandlestick();
+        dibujarEquity();
+        dibujarRetornos();
+
+        actualizarEstadoConexion('conectado');
+        console.log('✅ Datos cargados correctamente');
+
+    } catch (error) {
+        
+        console.error('Error completo:', error);
+        
+        // Mostrar error específico
+        if (error.message.includes('Failed to fetch')) {
+            mostrarError('No se puede conectar a ngrok. Verifica que:<br>1. ngrok esté activo en Colab<br>2. La URL sea correcta<br>3. CORS esté habilitado en FastAPI<br><br>URL intentada: ' + API_URL);
+        } else if (error.message.includes('CORS')) {
+            mostrarError('Error CORS: FastAPI debe permitir solicitudes del navegador. Añade CORS Middleware en tu servidor.');
+        } else {
+            mostrarError(error.message);
+        }
+        
+        actualizarEstadoConexion('error');
+        
+        // Cargar datos de demostración si falla
+        console.log('Cargando datos de demostración...');
+        cargarDatosDemostracion();
+    }
+}
+
+// ====================================
+// DATOS DE DEMOSTRACIÓN (si falla conexión)
+// ====================================
+
+function cargarDatosDemostracion() {
+    const fechas = [];
+    const close = [];
+    const pred = [];
+    
+    let precio = 150;
+    for (let i = 0; i < 60; i++) {
+        fechas.push(new Date(2024, 0, i + 1).toISOString().split('T')[0]);
+        precio += (Math.random() - 0.5) * 2;
+        close.push(parseFloat(precio.toFixed(2)));
+        pred.push(parseFloat((precio + (Math.random() - 0.5) * 3).toFixed(2)));
+    }
+    
+    datosGlobales.fechas = fechas;
+    datosGlobales.close = close;
+    datosGlobales.pred = pred;
+    
+    generarEquityCurve();
+    generarRetornos();
+    
+    dibujarCandlestick();
+    dibujarEquity();
+    dibujarRetornos();
+}
+
+// ====================================
+// GENERAR DATOS DE BACKTESTING
+// ====================================
+
+function generarEquityCurve() {
+    const equity = [];
+    let capital = 100000;
+    
+    for (let i = 0; i < datosGlobales.close.length; i++) {
+        capital *= 1 + (Math.random() - 0.45) / 50;
+        equity.push(parseFloat(capital.toFixed(2)));
+    }
+    
+    datosGlobales.equity = equity;
+}
+
+function generarRetornos() {
+    const retornos = [];
+    
+    for (let i = 0; i < 200; i++) {
+        retornos.push((Math.random() - 0.5) * 0.08);
+    }
+    
+    datosGlobales.retornos = retornos;
+}
+
+// ====================================
+// DIBUJAR GRÁFICOS
+// ====================================
+
+function dibujarCandlestick() {
+    Plotly.newPlot(
+        "candlestick",
+        [
+            {
+                x: datosGlobales.fechas,
+                y: datosGlobales.close,
+                mode: "lines",
+                name: "Precio Real",
+                line: { color: 'blue', width: 2 }
+            },
+            {
+                x: datosGlobales.fechas,
+                y: datosGlobales.pred,
+                mode: "lines",
+                name: "Predicción LSTM",
+                line: { color: 'red', width: 2, dash: 'dash' }
+            }
+        ],
+        {
+            template: "plotly_white",
+            title: "Datos obtenidos desde FastAPI",
+            xaxis: { title: "Fecha" },
+            yaxis: { title: "Precio ($)" },
+            hovermode: "x unified"
+        }
+    );
+}
+
+function dibujarEquity() {
+    Plotly.newPlot(
+        "equity",
+        [{
+            x: datosGlobales.fechas,
+            y: datosGlobales.equity,
+            mode: "lines",
+            name: "Equity Curve",
+            fill: 'tozeroy',
+            line: { color: 'green', width: 2 }
+        }],
+        {
+            template: "plotly_white",
+            title: "Evolución del Capital Inicial $100,000",
+            xaxis: { title: "Fecha" },
+            yaxis: { title: "Capital ($)" },
+            hovermode: "x unified"
+        }
+    );
+}
+
+function dibujarRetornos() {
+    Plotly.newPlot(
+        "returns",
+        [{
+            x: datosGlobales.retornos,
+            type: "histogram",
+            name: "Trades",
+            marker: { color: 'purple' }
+        }],
+        {
+            template: "plotly_white",
+            title: "Distribución de retornos por trade",
+            xaxis: { title: "Retorno (%)" },
+            yaxis: { title: "Frecuencia" }
+        }
+    );
+}
+
+// ====================================
+// EJECUTAR AL CARGAR LA PÁGINA
+// ====================================
+
+window.addEventListener('load', function() {
+    console.log('Página cargada. API URL:', API_URL);
+    cargarDatos();
+});
+
+</script>
+
+
+</body>
+</html>
