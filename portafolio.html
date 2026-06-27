@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>InvestAI – Gestión de Portafolio</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- ══════════════════════════════════════════
+       TOKENS Y RESET
+  ══════════════════════════════════════════ -->
+  <style>
+    :root {
+      --bg:        #F5F6FA;
+      --surface:   #FFFFFF;
+      --border:    #E4E7EF;
+      --primario:  #1F3864;
+      --acento:    #C5961A;
+      --texto:     #0D1B2A;
+      --muted:     #6B7A99;
+      --alcista:   #26A69A;
+      --bajista:   #EF5350;
+      --hold:      #F59E0B;
+      --radio:     10px;
+      --sombra:    0 2px 14px rgba(31,56,100,0.08);
+
+      /* Colores de activos (dona) */
+      --c-aapl:  #26A69A;
+      --c-msft:  #1F3864;
+      --c-googl: #C5961A;
+      --c-btc:   #EF5350;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Calibri', 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--texto);
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ─────────────────────────────── */
+    .topbar {
+      background: var(--primario);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.6rem;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      text-decoration: none;
+    }
+    .brand svg { width: 26px; height: 26px; }
+    .brand-name { font-size: 1rem; font-weight: 700; color: #fff; }
+    .brand-name span { color: var(--acento); }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .live-dot-wrap {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; font-weight: 700; color: var(--alcista); letter-spacing:.06em;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--alcista);
+      animation: blink 1.5s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+    /* Capital badge */
+    .cap-badge {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      padding: 0.28rem 0.8rem;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.85);
+      font-weight: 600;
+    }
+    .cap-badge strong { color: #fff; }
+
+    /* ── Layout grid ────────────────────────── */
+    .page { padding: 1.4rem 1.6rem; display: flex; flex-direction: column; gap: 1.2rem; }
+
+    /* Fila superior: dona + métricas */
+    .row-top {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 1.2rem;
+    }
+    /* Fila media: equity curve */
+    /* Fila inferior: tabla posiciones */
+
+    /* ── Card genérica ──────────────────────── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      border: 1px solid var(--border);
+      padding: 1.2rem 1.4rem;
+    }
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title span { color: var(--acento); }
+
+    /* ── Dona ───────────────────────────────── */
+    .dona-wrap {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .dona-canvas-wrap {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 0 auto;
+    }
+    .dona-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .dona-center-label { font-size: 0.68rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+    .dona-center-value { font-size: 1.35rem; font-weight: 700; color: var(--primario); line-height: 1.1; }
+
+    .dona-leyenda {
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
+      margin-top: .9rem;
+    }
+    .ley-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: .82rem;
+    }
+    .ley-left { display: flex; align-items: center; gap: .5rem; }
+    .ley-dot  { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+    .ley-name { font-weight: 600; color: var(--texto); }
+    .ley-pct  { font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    /* ── Panel métricas ─────────────────────── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: .9rem;
+    }
+    .metric-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .2rem;
+      transition: box-shadow .2s;
+    }
+    .metric-card:hover { box-shadow: 0 3px 12px rgba(31,56,100,.1); }
+    .metric-label {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: var(--muted);
+    }
+    .metric-value {
+      font-size: 1.55rem;
+      font-weight: 700;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-sub {
+      font-size: .73rem;
+      color: var(--muted);
+    }
+    .metric-bar-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: .35rem;
+      overflow: hidden;
+    }
+    .metric-bar { height: 100%; border-radius: 2px; transition: width .6s ease; }
+
+    .positive { color: var(--alcista); }
+    .negative { color: var(--bajista); }
+    .neutral  { color: var(--primario); }
+
+    /* Bloque VectorBT info */
+    .vbt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      background: rgba(31,56,100,.06);
+      border: 1px solid rgba(31,56,100,.14);
+      border-radius: 5px;
+      padding: .2rem .6rem;
+      font-size: .68rem;
+      font-weight: 700;
+      color: var(--primario);
+      letter-spacing: .05em;
+    }
+
+    /* ── Equity curve ───────────────────────── */
+    .equity-wrap { position: relative; height: 220px; }
+
+    /* Leyenda equity */
+    .equity-legend {
+      display: flex;
+      gap: 1.2rem;
+      margin-bottom: .7rem;
+    }
+    .eq-leg-item {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .79rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .eq-leg-line { width: 20px; height: 3px; border-radius: 2px; }
+
+    /* ── Tabla posiciones ───────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+    thead tr { border-bottom: 2px solid var(--border); }
+    thead th {
+      padding: .55rem .8rem;
+      text-align: left;
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    thead th.right { text-align: right; }
+    tbody tr {
+      border-bottom: 1px solid var(--bg);
+      transition: background .15s;
+    }
+    tbody tr:hover { background: var(--bg); }
+    tbody td {
+      padding: .65rem .8rem;
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    tbody td.right { text-align: right; }
+
+    /* Ticker chip */
+    .ticker-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-weight: 700;
+      font-size: .88rem;
+      color: var(--primario);
+    }
+    .ticker-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+    /* Señal badge */
+    .badge {
+      display: inline-block;
+      padding: .22rem .65rem;
+      border-radius: 20px;
+      font-size: .73rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+    .badge-buy  { background: rgba(38,166,154,.12); color: var(--alcista); }
+    .badge-sell { background: rgba(239,83,80,.12);  color: var(--bajista); }
+    .badge-hold { background: rgba(245,158,11,.12); color: var(--hold); }
+
+    /* Barra de peso en tabla */
+    .peso-bar-wrap { display: flex; align-items: center; gap: .5rem; }
+    .peso-bar-bg   { flex: 1; height: 5px; background: var(--border); border-radius: 3px; min-width: 60px; }
+    .peso-bar-fill { height: 100%; border-radius: 3px; }
+    .peso-label    { font-size: .78rem; font-weight: 700; color: var(--muted); min-width: 30px; text-align: right; }
+
+    /* ── Botón rebalancear ──────────────────── */
+    .btn-rebal {
+      background: var(--primario);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: .55rem 1.2rem;
+      font-family: inherit;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      transition: background .2s, transform .14s, box-shadow .2s;
+      box-shadow: 0 3px 12px rgba(31,56,100,.2);
+    }
+    .btn-rebal:hover { background: #162b52; transform: translateY(-1px); box-shadow: 0 5px 18px rgba(31,56,100,.28); }
+    .btn-rebal:active { transform: translateY(0); }
+    .btn-rebal svg { width: 15px; height: 15px; }
+
+    /* ── Modal ──────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(13,27,42,.45);
+      backdrop-filter: blur(3px);
+      z-index: 900;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(13,27,42,.25);
+      width: 100%;
+      max-width: 440px;
+      padding: 2rem;
+      animation: slideUp .28s ease;
+    }
+    @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      gap: .9rem;
+      margin-bottom: 1.2rem;
+    }
+    .modal-icon {
+      width: 42px; height: 42px;
+      background: rgba(197,150,26,.12);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .modal-icon svg { width: 22px; height: 22px; color: var(--acento); }
+    .modal-title { font-size: 1.05rem; font-weight: 700; color: var(--primario); margin-bottom: .25rem; }
+    .modal-desc  { font-size: .83rem; color: var(--muted); line-height: 1.5; }
+
+    /* Preview rebalanceo */
+    .rebal-preview {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .85rem 1rem;
+      margin-bottom: 1.2rem;
+    }
+    .rebal-preview-title {
+      font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted); margin-bottom: .6rem;
+    }
+    .rebal-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: .82rem; padding: .3rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .rebal-row:last-child { border-bottom: none; }
+    .rebal-ticker { font-weight: 700; color: var(--primario); }
+    .rebal-change { font-weight: 600; }
+    .rebal-up   { color: var(--alcista); }
+    .rebal-down { color: var(--bajista); }
+
+    .modal-info {
+      font-size: .77rem; color: var(--muted);
+      background: rgba(31,56,100,.05);
+      border-left: 3px solid var(--primario);
+      padding: .5rem .75rem;
+      border-radius: 0 5px 5px 0;
+      margin-bottom: 1.3rem;
+      line-height: 1.5;
+    }
+
+    .modal-actions { display: flex; gap: .7rem; justify-content: flex-end; }
+    .btn-cancel {
+      padding: .55rem 1.1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      font-family: inherit;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color .18s, color .18s;
+    }
+    .btn-cancel:hover { border-color: var(--muted); color: var(--texto); }
+    .btn-confirm {
+      padding: .55rem 1.3rem;
+      border: none;
+      border-radius: 7px;
+      background: var(--primario);
+      color: #fff;
+      font-family: inherit;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .18s, transform .12s;
+      box-shadow: 0 3px 12px rgba(31,56,100,.22);
+    }
+    .btn-confirm:hover { background: #162b52; transform: translateY(-1px); }
+
+    /* Toast confirmación */
+    .toast {
+      position: fixed;
+      bottom: 2rem; right: 2rem;
+      background: var(--primario);
+      color: #fff;
+      border-left: 4px solid var(--alcista);
+      border-radius: 8px;
+      padding: .85rem 1.2rem;
+      font-size: .86rem;
+      font-weight: 600;
+      box-shadow: 0 8px 30px rgba(31,56,100,.25);
+      z-index: 999;
+      display: none;
+      align-items: center;
+      gap: .6rem;
+      animation: fadeInUp .3s ease;
+    }
+    .toast.show { display: flex; }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .toast svg { width: 18px; height: 18px; color: var(--alcista); }
+
+    /* Responsive */
+    @media (max-width: 860px) {
+      .row-top { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .page { padding: .9rem; }
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+      .topbar { padding: 0 .9rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     TOPBAR
+════════════════════════════════════════════════ -->
+<header class="topbar">
+  <a class="brand" href="#">
+    <svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="26" height="26" rx="6" fill="#162b52"/>
+      <rect x="5"  y="10" width="4" height="9"  rx="1" fill="#26A69A"/>
+      <line x1="7"  y1="7"  x2="7"  y2="10" stroke="#26A69A" stroke-width="1.2"/>
+      <line x1="7"  y1="19" x2="7"  y2="22" stroke="#26A69A" stroke-width="1.2"/>
+      <rect x="17" y="8"  width="4" height="7"  rx="1" fill="#EF5350"/>
+      <line x1="19" y1="5"  x2="19" y2="8"  stroke="#EF5350" stroke-width="1.2"/>
+      <line x1="19" y1="15" x2="19" y2="18" stroke="#EF5350" stroke-width="1.2"/>
+    </svg>
+    <span class="brand-name">Invest<span>AI</span> &nbsp;·&nbsp; Portafolio</span>
+  </a>
+  <div class="topbar-right">
+    <div class="live-dot-wrap">
+      <div class="live-dot"></div>ACTUALIZADO
+    </div>
+    <div class="cap-badge">Capital inicial: <strong>$100,000 USD</strong></div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════
+     PÁGINA PRINCIPAL
+════════════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- ── Fila superior: dona + métricas ── -->
+  <div class="row-top">
+
+    <!-- Gráfico de Dona -->
+    <div class="card dona-wrap">
+      <div class="card-title">
+        Distribución del portafolio
+        <span>4 activos</span>
+      </div>
+      <div class="dona-canvas-wrap">
+        <canvas id="chartDona"></canvas>
+        <div class="dona-center">
+          <div class="dona-center-label">Valor total</div>
+          <div class="dona-center-value" id="valorTotal">$–</div>
+        </div>
+      </div>
+      <div class="dona-leyenda" id="donaLeyenda"></div>
+    </div>
+
+    <!-- Panel de métricas VectorBT -->
+    <div class="card">
+      <div class="card-title">
+        Métricas de backtesting
+        <span class="vbt-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          VectorBT · Comisión 0.1%
+        </span>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+    </div>
+  </div>
+
+  <!-- ── Curva de equity ── -->
+  <div class="card">
+    <div class="card-title">
+      Curva de equity
+      <div class="equity-legend">
+        <div class="eq-leg-item">
+          <div class="eq-leg-line" style="background:#1F3864"></div>Estrategia activa
+        </div>
+        <div class="eq-leg-item">
+          <div class="eq-leg-line" style="background:#B0B8CC; border-style:dashed"></div>Buy &amp; Hold
+        </div>
+      </div>
+    </div>
+    <div class="equity-wrap"><canvas id="chartEquity"></canvas></div>
+  </div>
+
+  <!-- ── Tabla de posiciones ── -->
+  <div class="card">
+    <div class="card-title">
+      Posiciones abiertas
+      <button class="btn-rebal" onclick="abrirModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        Rebalancear Portafolio
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th class="right">Cantidad</th>
+            <th class="right">P. Compra</th>
+            <th class="right">P. Actual</th>
+            <th class="right">P&amp;L ($)</th>
+            <th class="right">P&amp;L (%)</th>
+            <th>Peso</th>
+            <th>Señal</th>
+          </tr>
+        </thead>
+        <tbody id="tablaPosiciones"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+
+<!-- ══════════════════════════════════════════════
+     MODAL REBALANCEAR
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="cerrarModalFondo(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </div>
+      <div>
+        <div class="modal-title" id="modalTitulo">Confirmar Rebalanceo</div>
+        <div class="modal-desc">El sistema ajustará las posiciones a los pesos objetivo según la estrategia activa de InvestAI.</div>
+      </div>
+    </div>
+
+    <!-- Preview de cambios -->
+    <div class="rebal-preview">
+      <div class="rebal-preview-title">Ajustes proyectados</div>
+      <div class="rebal-row">
+        <span class="rebal-ticker">AAPL</span>
+        <span>40% → 40%</span>
+        <span class="rebal-change rebal-up">Sin cambio</span>
+      </div>
+      <div class="rebal-row">
+        <span class="rebal-ticker">MSFT</span>
+        <span>25% → 25%</span>
+        <span class="rebal-change rebal-up">Sin cambio</span>
+      </div>
+      <div class="rebal-row">
+        <span class="rebal-ticker">GOOGL</span>
+        <span>20% → 22%</span>
+        <span class="rebal-change rebal-up">▲ +2%</span>
+      </div>
+      <div class="rebal-row">
+        <span class="rebal-ticker">BTC-USD</span>
+        <span>15% → 13%</span>
+        <span class="rebal-change rebal-down">▼ −2%</span>
+      </div>
+    </div>
+
+    <div class="modal-info">
+      ⚠️ Se ejecutarán órdenes de mercado con comisión <strong>0.1%</strong> por operación.
+      Costo estimado de rebalanceo: <strong>~$47.20 USD</strong>. Esta acción no puede deshacerse.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmarRebalanceo()">Confirmar rebalanceo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast de confirmación -->
+<div class="toast" id="toast">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+    <polyline points="22 4 12 14.01 9 11.01"/>
+  </svg>
+  Portafolio rebalanceado correctamente · Órdenes ejecutadas
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────
+   DATOS DEL PORTAFOLIO (simulados realistas)
+───────────────────────────────────────────── */
+const CAPITAL_INICIAL = 100_000;
+
+// Composición objetivo del portafolio
+const ACTIVOS = [
+  {
+    ticker:   'AAPL',
+    nombre:   'Apple Inc.',
+    peso:     0.40,
+    color:    '#26A69A',
+    cantidad: 215,
+    pCompra:  172.30,
+    pActual:  189.85,
+    senal:    'HOLD',
+  },
+  {
+    ticker:   'MSFT',
+    nombre:   'Microsoft Corp.',
+    peso:     0.25,
+    color:    '#1F3864',
+    cantidad: 62,
+    pCompra:  356.10,
+    pActual:  382.70,
+    senal:    'BUY',
+  },
+  {
+    ticker:   'GOOGL',
+    nombre:   'Alphabet Inc.',
+    peso:     0.20,
+    color:    '#C5961A',
+    cantidad: 118,
+    pCompra:  141.55,
+    pActual:  163.40,
+    senal:    'BUY',
+  },
+  {
+    ticker:   'BTC-USD',
+    nombre:   'Bitcoin',
+    peso:     0.15,
+    color:    '#EF5350',
+    cantidad: 0.238,
+    pCompra:  52_840,
+    pActual:  61_320,
+    senal:    'SELL',
+  },
+];
+
+// Métricas de backtesting (VectorBT)
+const METRICAS = [
+  {
+    label:   'Total Return',
+    valor:   '+34.7%',
+    sub:     'vs 18.2% Buy & Hold',
+    barra:   0.70,
+    color:   '#26A69A',
+    clase:   'positive',
+  },
+  {
+    label:   'Sharpe Ratio',
+    valor:   '1.84',
+    sub:     'Ratio riesgo/retorno',
+    barra:   0.73,
+    color:   '#1F3864',
+    clase:   'neutral',
+  },
+  {
+    label:   'Max Drawdown',
+    valor:   '−12.3%',
+    sub:     'Caída máxima del capital',
+    barra:   0.25,
+    color:   '#EF5350',
+    clase:   'negative',
+  },
+  {
+    label:   'Win Rate',
+    valor:   '61.4%',
+    sub:     '214 ops · Profit Factor 2.1',
+    barra:   0.61,
+    color:   '#C5961A',
+    clase:   'positive',
+  },
+];
+
+/* ─────────────────────────────────────────────
+   UTILIDADES
+───────────────────────────────────────────── */
+const fmt2  = (n) => n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const fmtUSD = (n) => '$' + fmt2(n);
+const fmtPct = (n) => (n >= 0 ? '+' : '') + fmt2(n) + '%';
+
+/* ─────────────────────────────────────────────
+   1. GRÁFICO DE DONA
+───────────────────────────────────────────── */
+function iniciarDona() {
+  const ctx = document.getElementById('chartDona').getContext('2d');
+
+  // Calcular valor total del portafolio
+  const valorTotal = ACTIVOS.reduce((acc, a) => acc + a.cantidad * a.pActual, 0);
+  document.getElementById('valorTotal').textContent = fmtUSD(valorTotal);
+
+  // Construir leyenda HTML
+  const leyEl = document.getElementById('donaLeyenda');
+  ACTIVOS.forEach(a => {
+    const valorActivo = a.cantidad * a.pActual;
+    const pctReal = (valorActivo / valorTotal * 100).toFixed(1);
+    leyEl.innerHTML += `
+      <div class="ley-item">
+        <div class="ley-left">
+          <div class="ley-dot" style="background:${a.color}"></div>
+          <span class="ley-name">${a.ticker}</span>
+        </div>
+        <span class="ley-pct">${pctReal}% · ${fmtUSD(valorActivo)}</span>
+      </div>`;
+  });
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels:   ACTIVOS.map(a => a.ticker),
+      datasets: [{
+        data:             ACTIVOS.map(a => a.peso * 100),
+        backgroundColor:  ACTIVOS.map(a => a.color),
+        borderColor:      '#FFFFFF',
+        borderWidth:      3,
+        hoverBorderWidth: 4,
+        hoverOffset:      8,
+      }],
+    },
+    options: {
+      cutout: '68%',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.label}: ${ctx.raw}%`,
+          },
+          backgroundColor: '#1F3864',
+          titleColor: '#C5961A',
+          bodyColor: '#fff',
+          padding: 10,
+          cornerRadius: 7,
+          titleFont: { weight: 'bold', size: 12 },
+        },
+      },
+    },
+  });
+}
+
+/* ─────────────────────────────────────────────
+   2. MÉTRICAS (grid de tarjetas)
+───────────────────────────────────────────── */
+function renderMetricas() {
+  const grid = document.getElementById('metricsGrid');
+  METRICAS.forEach(m => {
+    grid.innerHTML += `
+      <div class="metric-card">
+        <div class="metric-label">${m.label}</div>
+        <div class="metric-value ${m.clase}">${m.valor}</div>
+        <div class="metric-sub">${m.sub}</div>
+        <div class="metric-bar-wrap">
+          <div class="metric-bar"
+               style="width:${m.barra*100}%; background:${m.color}"></div>
+        </div>
+      </div>`;
+  });
+}
+
+/* ─────────────────────────────────────────────
+   3. CURVA DE EQUITY (línea azul vs gris)
+   Simulamos 252 días hábiles (~1 año)
+───────────────────────────────────────────── */
+function iniciarEquity() {
+  const ctx = document.getElementById('chartEquity').getContext('2d');
+  const dias = 252;
+  const fechas = [], estrategia = [], buyhold = [];
+
+  // Generador Box-Muller (normal estándar)
+  const randn = () => {
+    let u, v;
+    do { u = Math.random(); } while (u === 0);
+    do { v = Math.random(); } while (v === 0);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+
+  let cap = CAPITAL_INICIAL;
+  let bh  = CAPITAL_INICIAL;
+  const ref = new Date();
+  ref.setDate(ref.getDate() - dias);
+
+  for (let i = 0; i <= dias; i++) {
+    const d = new Date(ref);
+    d.setDate(ref.getDate() + i);
+    // Saltar fines de semana
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+
+    fechas.push(d.toISOString().split('T')[0]);
+
+    // Estrategia activa: drift mayor, pero con drawdown simulado en el medio
+    const driftE = i < 80  ? 0.0006 :
+                   i < 130 ? -0.0008 :   // drawdown simulado
+                              0.0008;
+    cap *= Math.exp(driftE + 0.010 * randn());
+    estrategia.push(+cap.toFixed(2));
+
+    // Buy & Hold: drift menor, más suave
+    bh *= Math.exp(0.0003 + 0.012 * randn());
+    buyhold.push(+bh.toFixed(2));
+  }
+
+  // Gradiente azul bajo la curva de estrategia
+  const gradiente = ctx.createLinearGradient(0, 0, 0, 220);
+  gradiente.addColorStop(0,   'rgba(31,56,100,0.18)');
+  gradiente.addColorStop(1,   'rgba(31,56,100,0.00)');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: fechas,
+      datasets: [
+        {
+          label:           'Estrategia activa',
+          data:            estrategia,
+          borderColor:     '#1F3864',
+          borderWidth:     2.2,
+          backgroundColor: gradiente,
+          fill:            true,
+          tension:         0.35,
+          pointRadius:     0,
+          pointHoverRadius:5,
+          pointHoverBackgroundColor: '#1F3864',
+        },
+        {
+          label:           'Buy & Hold',
+          data:            buyhold,
+          borderColor:     '#B0B8CC',
+          borderWidth:     1.5,
+          borderDash:      [5, 4],
+          backgroundColor: 'transparent',
+          fill:            false,
+          tension:         0.35,
+          pointRadius:     0,
+          pointHoverRadius:4,
+          pointHoverBackgroundColor: '#B0B8CC',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1F3864',
+          titleColor:      '#C5961A',
+          bodyColor:       '#fff',
+          padding:         10,
+          cornerRadius:    7,
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: ${fmtUSD(ctx.raw)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid:  { color: '#F0F2F8', drawBorder: false },
+          ticks: {
+            color: '#6B7A99',
+            maxTicksLimit: 8,
+            font: { size: 11 },
+          },
+        },
+        y: {
+          grid:  { color: '#F0F2F8', drawBorder: false },
+          ticks: {
+            color: '#6B7A99',
+            font: { size: 11 },
+            callback: (v) => '$' + (v/1000).toFixed(0) + 'k',
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ─────────────────────────────────────────────
+   4. TABLA DE POSICIONES
+───────────────────────────────────────────── */
+function renderTabla() {
+  const tbody = document.getElementById('tablaPosiciones');
+
+  // Calcular valor total para pesos reales
+  const valorTotal = ACTIVOS.reduce((s, a) => s + a.cantidad * a.pActual, 0);
+
+  ACTIVOS.forEach(a => {
+    const plDolar = (a.pActual - a.pCompra) * a.cantidad;
+    const plPct   = ((a.pActual - a.pCompra) / a.pCompra) * 100;
+    const valorPos = a.cantidad * a.pActual;
+    const pesoReal = valorPos / valorTotal * 100;
+
+    const plClass  = plDolar >= 0 ? 'positive' : 'negative';
+    const badgeCls = a.senal === 'BUY'  ? 'badge-buy'  :
+                     a.senal === 'SELL' ? 'badge-sell' : 'badge-hold';
+
+    // Formato cantidad (cripto con decimales)
+    const fmtCant  = a.ticker === 'BTC-USD'
+      ? a.cantidad.toFixed(4)
+      : a.cantidad.toLocaleString();
+
+    tbody.innerHTML += `
+      <tr>
+        <td>
+          <div class="ticker-chip">
+            <div class="ticker-dot" style="background:${a.color}"></div>
+            <div>
+              <div>${a.ticker}</div>
+              <div style="font-size:.73rem;color:var(--muted);font-weight:500">${a.nombre}</div>
+            </div>
+          </div>
+        </td>
+        <td class="right">${fmtCant}</td>
+        <td class="right">${fmtUSD(a.pCompra)}</td>
+        <td class="right" style="font-weight:700">${fmtUSD(a.pActual)}</td>
+        <td class="right ${plClass}" style="font-weight:700">
+          ${plDolar >= 0 ? '+' : ''}${fmtUSD(plDolar)}
+        </td>
+        <td class="right ${plClass}" style="font-weight:700">
+          ${fmtPct(plPct)}
+        </td>
+        <td style="min-width:120px">
+          <div class="peso-bar-wrap">
+            <div class="peso-bar-bg">
+              <div class="peso-bar-fill"
+                   style="width:${pesoReal}%; background:${a.color}"></div>
+            </div>
+            <div class="peso-label">${pesoReal.toFixed(1)}%</div>
+          </div>
+        </td>
+        <td>
+          <span class="badge ${badgeCls}">${a.senal}</span>
+        </td>
+      </tr>`;
+  });
+}
+
+/* ─────────────────────────────────────────────
+   5. MODAL REBALANCEAR
+───────────────────────────────────────────── */
+function abrirModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function cerrarModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+// Cerrar al hacer click fuera del modal
+function cerrarModalFondo(e) {
+  if (e.target === document.getElementById('modalOverlay')) cerrarModal();
+}
+// Cerrar con Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') cerrarModal();
+});
+
+function confirmarRebalanceo() {
+  cerrarModal();
+  // Mostrar toast de confirmación
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+/* ─────────────────────────────────────────────
+   INICIALIZACIÓN
+───────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  iniciarDona();
+  renderMetricas();
+  iniciarEquity();
+  renderTabla();
+});
+</script>
+</body>
+</html>

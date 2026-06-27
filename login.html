@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InvestAI – Autenticación</title>
+
+  <!-- ═══════════════════════════════════════════════════
+       ESTILOS GLOBALES Y SISTEMA DE TOKENS
+  ══════════════════════════════════════════════════════ -->
+  <style>
+    /* ── Variables de diseño ───────────────────────────── */
+    :root {
+      --fondo:       #FFFFFF;
+      --primario:    #1F3864;
+      --acento:      #C5961A;
+      --texto:       #000000;
+      --error:       #DC3545;
+      --gris-suave:  #F4F6FB;
+      --gris-borde:  #D0D7E6;
+      --gris-texto:  #5A6A8A;
+      --sombra:      0 8px 40px rgba(31,56,100,0.13);
+      --radio:       10px;
+      --transicion:  0.38s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ── Reset mínimo ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Calibri', 'Inter', sans-serif;
+      background: var(--gris-suave);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      /* Patrón sutil inspirado en velas financieras */
+      background-image:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 59px,
+          rgba(31,56,100,0.035) 60px
+        ),
+        repeating-linear-gradient(
+          180deg,
+          transparent,
+          transparent 59px,
+          rgba(31,56,100,0.035) 60px
+        );
+    }
+
+    /* ── Contenedor principal ──────────────────────────── */
+    .auth-wrapper {
+      width: 100%;
+      max-width: 460px;
+      position: relative;
+    }
+
+    /* ── Tarjeta compartida ────────────────────────────── */
+    .card {
+      background: var(--fondo);
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      padding: 2.6rem 2.4rem 2.2rem;
+      border-top: 4px solid var(--acento);
+      /* Cada pantalla se anima al entrar/salir */
+      display: none;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity var(--transicion), transform var(--transicion);
+    }
+    .card.activa {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    /* Clase intermedia para animar la salida */
+    .card.saliendo {
+      display: block;
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+
+    /* ── Header de cada tarjeta ────────────────────────── */
+    .card-header {
+      text-align: center;
+      margin-bottom: 1.8rem;
+    }
+
+    /* Logo + nombre del sistema */
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      margin-bottom: 0.5rem;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    .brand-name {
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: var(--primario);
+      letter-spacing: -0.3px;
+      line-height: 1.2;
+    }
+    .brand-name span {
+      color: var(--acento);
+    }
+
+    .card-subtitle {
+      font-size: 0.82rem;
+      color: var(--gris-texto);
+      letter-spacing: 0.02em;
+      margin-top: 0.2rem;
+    }
+
+    /* Divisor decorativo dorado */
+    .divider-gold {
+      width: 44px;
+      height: 3px;
+      background: var(--acento);
+      border-radius: 2px;
+      margin: 0.9rem auto 0;
+    }
+
+    .card-title {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--primario);
+      margin-top: 1.3rem;
+      letter-spacing: -0.4px;
+    }
+
+    /* ── Campos de formulario ──────────────────────────── */
+    .campo {
+      margin-bottom: 1.1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--primario);
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.02em;
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-wrap svg {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 17px;
+      height: 17px;
+      color: var(--gris-texto);
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    select {
+      width: 100%;
+      padding: 0.72rem 0.9rem 0.72rem 2.5rem;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      color: var(--texto);
+      background: var(--fondo);
+      transition: border-color 0.22s, box-shadow 0.22s;
+      outline: none;
+      appearance: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--primario);
+      box-shadow: 0 0 0 3px rgba(31,56,100,0.12);
+    }
+    input.invalido, select.invalido {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(220,53,69,0.10);
+    }
+    /* Selector sin icono izquierdo */
+    .campo-select select {
+      padding-left: 0.9rem;
+      cursor: pointer;
+    }
+
+    /* Toggle mostrar/ocultar contraseña */
+    .toggle-pw {
+      position: absolute;
+      right: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 3px;
+      color: var(--gris-texto);
+      display: flex;
+      align-items: center;
+    }
+    .toggle-pw:hover { color: var(--primario); }
+    .toggle-pw svg { width: 18px; height: 18px; }
+
+    /* Mensaje de error por campo */
+    .error-msg {
+      font-size: 0.78rem;
+      color: var(--error);
+      margin-top: 0.3rem;
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
+    .error-msg.visible { display: flex; }
+    .error-msg svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ── Checkbox de términos ──────────────────────────── */
+    .campo-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      margin-bottom: 1.3rem;
+    }
+    .campo-check input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-top: 3px;
+      accent-color: var(--primario);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .campo-check label {
+      font-size: 0.83rem;
+      color: var(--gris-texto);
+      font-weight: 400;
+      cursor: pointer;
+    }
+    .campo-check label a {
+      color: var(--acento);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .campo-check label a:hover { text-decoration: underline; }
+
+    /* ── Botones principales ───────────────────────────── */
+    .btn-primary {
+      width: 100%;
+      padding: 0.85rem;
+      background: var(--primario);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: background 0.22s, transform 0.14s, box-shadow 0.22s;
+      box-shadow: 0 4px 16px rgba(31,56,100,0.18);
+    }
+    .btn-primary:hover {
+      background: #162b52;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(31,56,100,0.25);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    /* ── Botón Google ──────────────────────────────────── */
+    .btn-google {
+      width: 100%;
+      padding: 0.78rem;
+      background: var(--fondo);
+      color: var(--texto);
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+      margin-top: 0.75rem;
+    }
+    .btn-google:hover {
+      background: var(--gris-suave);
+      border-color: #a0aec0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    }
+    .btn-google svg { width: 20px; height: 20px; }
+
+    /* ── Separador OR ──────────────────────────────────── */
+    .separator {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.1rem 0 0.85rem;
+      color: var(--gris-borde);
+      font-size: 0.8rem;
+      color: var(--gris-texto);
+    }
+    .separator::before,
+    .separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gris-borde);
+    }
+
+    /* ── Links de navegación ───────────────────────────── */
+    .nav-links {
+      text-align: center;
+      margin-top: 1.25rem;
+    }
+    .nav-links p {
+      font-size: 0.86rem;
+      color: var(--gris-texto);
+      margin-bottom: 0.3rem;
+    }
+    .link-accion {
+      background: none;
+      border: none;
+      color: var(--acento);
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: none;
+      transition: color 0.18s;
+    }
+    .link-accion:hover { color: #a07a14; text-decoration: underline; }
+
+    /* ── Mensaje de confirmación (recuperación) ───────── */
+    .confirm-box {
+      background: #EBF5EC;
+      border: 1.5px solid #6CC17A;
+      border-radius: 8px;
+      padding: 1.1rem 1.2rem;
+      display: none;
+      align-items: flex-start;
+      gap: 0.7rem;
+      margin-top: 1.1rem;
+    }
+    .confirm-box.visible { display: flex; }
+    .confirm-box svg { width: 22px; height: 22px; color: #2E7D32; flex-shrink: 0; margin-top: 2px; }
+    .confirm-box p { font-size: 0.9rem; color: #1B5E20; font-weight: 500; line-height: 1.45; }
+    .confirm-box strong { font-weight: 700; }
+
+    /* ── Indicador de fuerza de contraseña ────────────── */
+    .pw-strength {
+      margin-top: 0.5rem;
+      display: none;
+    }
+    .pw-strength.visible { display: block; }
+    .pw-bars {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .pw-bar {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--gris-borde);
+      transition: background 0.3s;
+    }
+    .pw-label {
+      font-size: 0.74rem;
+      color: var(--gris-texto);
+    }
+
+    /* ── Footer de la página ───────────────────────────── */
+    .page-footer {
+      text-align: center;
+      margin-top: 1.4rem;
+      font-size: 0.76rem;
+      color: var(--gris-texto);
+    }
+    .page-footer span { color: var(--acento); font-weight: 600; }
+
+    /* ── Responsivo mobile ─────────────────────────────── */
+    @media (max-width: 520px) {
+      body { padding: 0.8rem; align-items: flex-start; }
+      .card { padding: 2rem 1.4rem 1.8rem; }
+      .card-title { font-size: 1.25rem; }
+      .brand-name { font-size: 1rem; }
+    }
+
+    /* ── Preferencia de movimiento reducido ────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      .card { transition: none; }
+      .btn-primary, .btn-google { transition: none; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="auth-wrapper">
+
+    <!-- ══════════════════════════════════════════════════
+         PANTALLA 1: INICIO DE SESIÓN
+    ═══════════════════════════════════════════════════ -->
+    <div class="card activa" id="pantalla-login">
+      <div class="card-header">
+        <!-- Logo SVG: gráfica de vela + iniciales AI -->
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="36" height="36" rx="8" fill="#1F3864"/>
+            <!-- Vela alcista -->
+            <rect x="9" y="14" width="5" height="12" rx="1" fill="#C5961A"/>
+            <line x1="11.5" y1="10" x2="11.5" y2="14" stroke="#C5961A" stroke-width="1.5"/>
+            <line x1="11.5" y1="26" x2="11.5" y2="30" stroke="#C5961A" stroke-width="1.5"/>
+            <!-- Vela bajista -->
+            <rect x="22" y="10" width="5" height="10" rx="1" fill="#ffffff" opacity="0.85"/>
+            <line x1="24.5" y1="7" x2="24.5" y2="10" stroke="#ffffff" stroke-width="1.5" opacity="0.85"/>
+            <line x1="24.5" y1="20" x2="24.5" y2="24" stroke="#ffffff" stroke-width="1.5" opacity="0.85"/>
+          </svg>
+          <div>
+            <div class="brand-name">Invest<span>AI</span></div>
+          </div>
+        </div>
+        <div class="card-subtitle">Sistema Inteligente de Inversión · 16 Modelos de IA</div>
+        <div class="divider-gold"></div>
+        <div class="card-title">Iniciar Sesión</div>
+      </div>
+
+      <!-- Formulario de login -->
+      <div class="campo">
+        <label for="login-email">Correo electrónico</label>
+        <div class="input-wrap">
+          <!-- Icono email -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          <input type="email" id="login-email" placeholder="analista@firma.com" autocomplete="email" />
+        </div>
+        <div class="error-msg" id="err-login-email">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label for="login-pw">Contraseña</label>
+        <div class="input-wrap">
+          <!-- Icono candado -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password" />
+          <button class="toggle-pw" type="button" onclick="togglePw('login-pw', this)" aria-label="Mostrar contraseña">
+            <svg id="ico-login-pw-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="ico-login-pw-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+        <div class="error-msg" id="err-login-pw">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Enlace recuperar contraseña -->
+      <div style="text-align:right; margin-top:-0.4rem; margin-bottom:1.2rem;">
+        <button class="link-accion" onclick="ir('pantalla-recuperar')" type="button">¿Olvidaste tu contraseña?</button>
+      </div>
+
+      <button class="btn-primary" onclick="validarLogin()" type="button">Iniciar Sesión</button>
+
+      <div class="separator">o</div>
+
+      <!-- Botón Google -->
+      <button class="btn-google" type="button" onclick="simularGoogle()">
+        <!-- Google "G" SVG oficial -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continuar con Google
+      </button>
+
+      <div class="nav-links">
+        <p>¿No tienes una cuenta?
+          <button class="link-accion" onclick="ir('pantalla-registro')" type="button">Crear cuenta</button>
+        </p>
+      </div>
+    </div><!-- /login -->
+
+
+    <!-- ══════════════════════════════════════════════════
+         PANTALLA 2: REGISTRO
+    ═══════════════════════════════════════════════════ -->
+    <div class="card" id="pantalla-registro">
+      <div class="card-header">
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="36" height="36" rx="8" fill="#1F3864"/>
+            <rect x="9" y="14" width="5" height="12" rx="1" fill="#C5961A"/>
+            <line x1="11.5" y1="10" x2="11.5" y2="14" stroke="#C5961A" stroke-width="1.5"/>
+            <line x1="11.5" y1="26" x2="11.5" y2="30" stroke="#C5961A" stroke-width="1.5"/>
+            <rect x="22" y="10" width="5" height="10" rx="1" fill="#ffffff" opacity="0.85"/>
+            <line x1="24.5" y1="7" x2="24.5" y2="10" stroke="#ffffff" stroke-width="1.5" opacity="0.85"/>
+            <line x1="24.5" y1="20" x2="24.5" y2="24" stroke="#ffffff" stroke-width="1.5" opacity="0.85"/>
+          </svg>
+          <div>
+            <div class="brand-name">Invest<span>AI</span></div>
+          </div>
+        </div>
+        <div class="card-subtitle">Sistema Inteligente de Inversión · 16 Modelos de IA</div>
+        <div class="divider-gold"></div>
+        <div class="card-title">Crear Cuenta</div>
+      </div>
+
+      <!-- Nombre completo -->
+      <div class="campo">
+        <label for="reg-nombre">Nombre completo</label>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <input type="text" id="reg-nombre" placeholder="Ej. Carlos Mendoza Torres" autocomplete="name" />
+        </div>
+        <div class="error-msg" id="err-reg-nombre">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="campo">
+        <label for="reg-email">Correo electrónico</label>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          <input type="email" id="reg-email" placeholder="correo@empresa.com" autocomplete="email" />
+        </div>
+        <div class="error-msg" id="err-reg-email">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Contraseña -->
+      <div class="campo">
+        <label for="reg-pw">Contraseña</label>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="reg-pw" placeholder="Mínimo 8 caracteres" autocomplete="new-password" oninput="evaluarFuerza(this.value)" />
+          <button class="toggle-pw" type="button" onclick="togglePw('reg-pw', this)" aria-label="Mostrar contraseña">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <!-- Indicador de fuerza -->
+        <div class="pw-strength" id="pw-strength">
+          <div class="pw-bars">
+            <div class="pw-bar" id="bar1"></div>
+            <div class="pw-bar" id="bar2"></div>
+            <div class="pw-bar" id="bar3"></div>
+            <div class="pw-bar" id="bar4"></div>
+          </div>
+          <div class="pw-label" id="pw-label">Contraseña débil</div>
+        </div>
+        <div class="error-msg" id="err-reg-pw">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Confirmar contraseña -->
+      <div class="campo">
+        <label for="reg-pw2">Confirmar contraseña</label>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><polyline points="9 12 11 14 15 10"/></svg>
+          <input type="password" id="reg-pw2" placeholder="Repite tu contraseña" autocomplete="new-password" />
+          <button class="toggle-pw" type="button" onclick="togglePw('reg-pw2', this)" aria-label="Mostrar contraseña">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="error-msg" id="err-reg-pw2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Perfil de inversor -->
+      <div class="campo campo-select">
+        <label for="reg-perfil">Perfil de inversor</label>
+        <select id="reg-perfil">
+          <option value="">-- Selecciona tu perfil --</option>
+          <option value="conservador">🛡️  Conservador – Prioriza la seguridad del capital</option>
+          <option value="moderado">⚖️  Moderado – Balance entre riesgo y rendimiento</option>
+          <option value="agresivo">🚀  Agresivo – Maximizar rendimiento a largo plazo</option>
+        </select>
+        <div class="error-msg" id="err-reg-perfil">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Términos y condiciones -->
+      <div class="campo-check">
+        <input type="checkbox" id="reg-terminos" />
+        <label for="reg-terminos">
+          Acepto los <a href="#" onclick="return false">Términos de Servicio</a> y la
+          <a href="#" onclick="return false">Política de Privacidad</a> de InvestAI
+        </label>
+      </div>
+      <div class="error-msg" id="err-reg-terminos" style="margin-top:-0.9rem; margin-bottom:0.9rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span></span>
+      </div>
+
+      <button class="btn-primary" onclick="validarRegistro()" type="button">Crear Cuenta</button>
+
+      <div class="nav-links">
+        <p>¿Ya tienes una cuenta?
+          <button class="link-accion" onclick="ir('pantalla-login')" type="button">Iniciar sesión</button>
+        </p>
+      </div>
+    </div><!-- /registro -->
+
+
+    <!-- ══════════════════════════════════════════════════
+         PANTALLA 3: RECUPERACIÓN DE CONTRASEÑA
+    ═══════════════════════════════════════════════════ -->
+    <div class="card" id="pantalla-recuperar">
+      <div class="card-header">
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="36" height="36" rx="8" fill="#1F3864"/>
+            <rect x="9" y="14" width="5" height="12" rx="1" fill="#C5961A"/>
+            <line x1="11.5" y1="10" x2="11.5" y2="14" stroke="#C5961A" stroke-width="1.5"/>
+            <line x1="11.5" y1="26" x2="11.5" y2="30" stroke="#C5961A" stroke-width="1.5"/>
+            <rect x="22" y="10" width="5" height="10" rx="1" fill="#ffffff" opacity="0.85"/>
+            <line x1="24.5" y1="7" x2="24.5" y2="10" stroke="#ffffff" stroke-width="1.5" opacity="0.85"/>
+            <line x1="24.5" y1="20" x2="24.5" y2="24" stroke="#ffffff" stroke-width="1.5" opacity="0.85"/>
+          </svg>
+          <div>
+            <div class="brand-name">Invest<span>AI</span></div>
+          </div>
+        </div>
+        <div class="card-subtitle">Sistema Inteligente de Inversión · 16 Modelos de IA</div>
+        <div class="divider-gold"></div>
+        <div class="card-title">Recuperar Contraseña</div>
+      </div>
+
+      <p style="font-size:0.88rem; color:var(--gris-texto); margin-bottom:1.3rem; line-height:1.55;">
+        Ingresa tu correo registrado y te enviaremos un enlace seguro para restablecer tu contraseña.
+      </p>
+
+      <!-- Campo email recuperación -->
+      <div class="campo" id="rec-campo-email">
+        <label for="rec-email">Correo electrónico</label>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          <input type="email" id="rec-email" placeholder="correo@empresa.com" autocomplete="email" />
+        </div>
+        <div class="error-msg" id="err-rec-email">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Botón enviar -->
+      <button class="btn-primary" id="btn-enviar" onclick="validarRecuperacion()" type="button">Enviar enlace de acceso</button>
+
+      <!-- Mensaje de confirmación post-envío -->
+      <div class="confirm-box" id="confirm-recuperar">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <p>Enlace enviado a <strong id="confirm-email-mostrado"></strong>. Revisa tu bandeja de entrada (y carpeta de spam). El enlace expira en 30 minutos.</p>
+      </div>
+
+      <div class="nav-links">
+        <button class="link-accion" onclick="ir('pantalla-login')" type="button">← Volver al inicio de sesión</button>
+      </div>
+    </div><!-- /recuperar -->
+
+    <!-- Pie de página -->
+    <p class="page-footer">
+      InvestAI © 2025 · <span>FISI-UNMSM</span> · Powered by 16 AI Models
+    </p>
+
+  </div><!-- /auth-wrapper -->
+
+
+  <!-- ══════════════════════════════════════════════════
+       LÓGICA JAVASCRIPT
+  ═══════════════════════════════════════════════════ -->
+  <script>
+    'use strict';
+
+    /* ── Navegación con animación entre pantallas ─────── */
+    let pantallaActual = 'pantalla-login';
+
+    function ir(idDestino) {
+      if (idDestino === pantallaActual) return;
+
+      const actual   = document.getElementById(pantallaActual);
+      const destino  = document.getElementById(idDestino);
+
+      /* Animación de salida */
+      actual.classList.add('saliendo');
+
+      setTimeout(() => {
+        actual.classList.remove('activa', 'saliendo');
+        actual.style.display = 'none';
+
+        /* Animación de entrada */
+        destino.style.display = 'block';
+        /* Forzar reflow para que la transición se aplique */
+        void destino.offsetWidth;
+        destino.classList.add('activa');
+        pantallaActual = idDestino;
+
+        /* Limpiar campos y errores al cambiar de pantalla */
+        limpiarPantalla(idDestino);
+      }, 200);
+    }
+
+    /* ── Utilidad: limpiar errores y valores ─────────── */
+    function limpiarPantalla(id) {
+      const card = document.getElementById(id);
+      /* Limpiar mensajes de error */
+      card.querySelectorAll('.error-msg').forEach(el => el.classList.remove('visible'));
+      /* Limpiar clases inválido */
+      card.querySelectorAll('.invalido').forEach(el => el.classList.remove('invalido'));
+
+      /* Limpieza específica por pantalla */
+      if (id === 'pantalla-recuperar') {
+        document.getElementById('confirm-recuperar').classList.remove('visible');
+        document.getElementById('btn-enviar').disabled      = false;
+        document.getElementById('btn-enviar').style.opacity = '1';
+        document.getElementById('rec-campo-email').style.display = 'block';
+        document.getElementById('rec-email').value          = '';
+      }
+      if (id === 'pantalla-registro') {
+        document.getElementById('pw-strength').classList.remove('visible');
+      }
+    }
+
+    /* ── Mostrar/ocultar contraseña ───────────────────── */
+    function togglePw(inputId, btn) {
+      const inp  = document.getElementById(inputId);
+      const svgs = btn.querySelectorAll('svg');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        svgs.forEach(s => s.style.display = s === svgs[0] ? 'none' : 'block');
+      } else {
+        inp.type = 'password';
+        svgs.forEach(s => s.style.display = s === svgs[0] ? 'block' : 'none');
+      }
+    }
+
+    /* ── Mostrar error en un campo ────────────────────── */
+    function mostrarError(inputId, errorId, mensaje) {
+      const inp = document.getElementById(inputId);
+      const err = document.getElementById(errorId);
+      if (inp) inp.classList.add('invalido');
+      if (err) {
+        err.querySelector('span').textContent = mensaje;
+        err.classList.add('visible');
+      }
+    }
+
+    /* ── Limpiar error de un campo ────────────────────── */
+    function limpiarError(inputId, errorId) {
+      const inp = document.getElementById(inputId);
+      const err = document.getElementById(errorId);
+      if (inp) inp.classList.remove('invalido');
+      if (err) err.classList.remove('visible');
+    }
+
+    /* ── Validar formato de email ─────────────────────── */
+    function esEmailValido(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    }
+
+    /* ══════════════════════════════════════════════════
+       VALIDACIÓN: INICIO DE SESIÓN
+    ═══════════════════════════════════════════════════ */
+    function validarLogin() {
+      let valido = true;
+      const email = document.getElementById('login-email').value.trim();
+      const pw    = document.getElementById('login-pw').value;
+
+      /* Validar email */
+      if (!email) {
+        mostrarError('login-email', 'err-login-email', 'El correo electrónico es obligatorio.');
+        valido = false;
+      } else if (!esEmailValido(email)) {
+        mostrarError('login-email', 'err-login-email', 'Ingresa un correo electrónico válido.');
+        valido = false;
+      } else {
+        limpiarError('login-email', 'err-login-email');
+      }
+
+      /* Validar contraseña */
+      if (!pw) {
+        mostrarError('login-pw', 'err-login-pw', 'La contraseña es obligatoria.');
+        valido = false;
+      } else {
+        limpiarError('login-pw', 'err-login-pw');
+      }
+
+      if (valido) {
+        /* En producción aquí se dispararía la llamada al backend */
+        alert('✅ Credenciales válidas.\n\nEn producción se conectaría con el backend de autenticación.');
+      }
+    }
+
+    /* ══════════════════════════════════════════════════
+       VALIDACIÓN: REGISTRO
+    ═══════════════════════════════════════════════════ */
+    function validarRegistro() {
+      let valido = true;
+
+      const nombre   = document.getElementById('reg-nombre').value.trim();
+      const email    = document.getElementById('reg-email').value.trim();
+      const pw       = document.getElementById('reg-pw').value;
+      const pw2      = document.getElementById('reg-pw2').value;
+      const perfil   = document.getElementById('reg-perfil').value;
+      const terminos = document.getElementById('reg-terminos').checked;
+
+      /* Nombre */
+      if (!nombre || nombre.length < 3) {
+        mostrarError('reg-nombre', 'err-reg-nombre', 'Ingresa tu nombre completo (mínimo 3 caracteres).');
+        valido = false;
+      } else {
+        limpiarError('reg-nombre', 'err-reg-nombre');
+      }
+
+      /* Email */
+      if (!email) {
+        mostrarError('reg-email', 'err-reg-email', 'El correo electrónico es obligatorio.');
+        valido = false;
+      } else if (!esEmailValido(email)) {
+        mostrarError('reg-email', 'err-reg-email', 'Ingresa un correo electrónico válido.');
+        valido = false;
+      } else {
+        limpiarError('reg-email', 'err-reg-email');
+      }
+
+      /* Contraseña */
+      if (!pw || pw.length < 8) {
+        mostrarError('reg-pw', 'err-reg-pw', 'La contraseña debe tener al menos 8 caracteres.');
+        valido = false;
+      } else {
+        limpiarError('reg-pw', 'err-reg-pw');
+      }
+
+      /* Confirmar contraseña */
+      if (!pw2) {
+        mostrarError('reg-pw2', 'err-reg-pw2', 'Confirma tu contraseña.');
+        valido = false;
+      } else if (pw !== pw2) {
+        mostrarError('reg-pw2', 'err-reg-pw2', 'Las contraseñas no coinciden.');
+        valido = false;
+      } else {
+        limpiarError('reg-pw2', 'err-reg-pw2');
+      }
+
+      /* Perfil de inversor */
+      if (!perfil) {
+        mostrarError('reg-perfil', 'err-reg-perfil', 'Selecciona tu perfil de inversor.');
+        valido = false;
+      } else {
+        limpiarError('reg-perfil', 'err-reg-perfil');
+      }
+
+      /* Términos */
+      if (!terminos) {
+        const err = document.getElementById('err-reg-terminos');
+        err.querySelector('span').textContent = 'Debes aceptar los términos y condiciones.';
+        err.classList.add('visible');
+        valido = false;
+      } else {
+        document.getElementById('err-reg-terminos').classList.remove('visible');
+      }
+
+      if (valido) {
+        alert(`✅ Cuenta creada correctamente.\n\nBienvenido/a, ${nombre}.\nPerfil: ${perfil.charAt(0).toUpperCase() + perfil.slice(1)}\n\nEn producción se enviaría un email de verificación.`);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════
+       VALIDACIÓN: RECUPERACIÓN DE CONTRASEÑA
+    ═══════════════════════════════════════════════════ */
+    function validarRecuperacion() {
+      const email = document.getElementById('rec-email').value.trim();
+
+      if (!email) {
+        mostrarError('rec-email', 'err-rec-email', 'Ingresa tu correo electrónico.');
+        return;
+      }
+      if (!esEmailValido(email)) {
+        mostrarError('rec-email', 'err-rec-email', 'Ingresa un correo electrónico válido.');
+        return;
+      }
+      limpiarError('rec-email', 'err-rec-email');
+
+      /* Ocultar formulario y mostrar confirmación */
+      document.getElementById('rec-campo-email').style.display = 'none';
+      const btn = document.getElementById('btn-enviar');
+      btn.disabled      = true;
+      btn.style.opacity = '0.5';
+
+      /* Mostrar email en el mensaje de confirmación */
+      document.getElementById('confirm-email-mostrado').textContent = email;
+      document.getElementById('confirm-recuperar').classList.add('visible');
+    }
+
+    /* ══════════════════════════════════════════════════
+       INDICADOR DE FUERZA DE CONTRASEÑA
+    ═══════════════════════════════════════════════════ */
+    function evaluarFuerza(pw) {
+      const strenghtEl = document.getElementById('pw-strength');
+      const labelEl    = document.getElementById('pw-label');
+      const bars       = [
+        document.getElementById('bar1'),
+        document.getElementById('bar2'),
+        document.getElementById('bar3'),
+        document.getElementById('bar4'),
+      ];
+
+      if (!pw) {
+        strenghtEl.classList.remove('visible');
+        return;
+      }
+      strenghtEl.classList.add('visible');
+
+      /* Calcular puntuación 0-4 */
+      let score = 0;
+      if (pw.length >= 8)                       score++;
+      if (/[A-Z]/.test(pw))                     score++;
+      if (/[0-9]/.test(pw))                     score++;
+      if (/[^A-Za-z0-9]/.test(pw))             score++;
+
+      /* Paleta por nivel */
+      const colores = ['#DC3545', '#FF8C00', '#C5961A', '#2E7D32'];
+      const labels  = ['Contraseña débil', 'Contraseña regular', 'Contraseña buena', 'Contraseña fuerte'];
+      const color   = colores[score - 1] || '#DC3545';
+
+      /* Pintar barras */
+      bars.forEach((bar, i) => {
+        bar.style.background = i < score ? color : 'var(--gris-borde)';
+      });
+      labelEl.textContent  = labels[score - 1] || 'Contraseña débil';
+      labelEl.style.color  = color;
+    }
+
+    /* ══════════════════════════════════════════════════
+       SIMULACIÓN: CONTINUAR CON GOOGLE
+    ═══════════════════════════════════════════════════ */
+    function simularGoogle() {
+      alert('🔐 OAuth 2.0 con Google\n\nEn producción se redirigiría al flujo de autenticación de Google.');
+    }
+
+    /* ── Limpiar errores al escribir (UX) ─────────────── */
+    document.addEventListener('DOMContentLoaded', () => {
+      /* Para todos los inputs y selects, al modificar limpia el error */
+      document.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', () => {
+          if (el.classList.contains('invalido')) {
+            el.classList.remove('invalido');
+            /* Buscar el error-msg más cercano */
+            const wrap = el.closest('.campo') || el.closest('.campo-select');
+            if (wrap) {
+              const err = wrap.querySelector('.error-msg');
+              if (err) err.classList.remove('visible');
+            }
+          }
+        });
+      });
+
+      /* Permitir envío de formularios con Enter */
+      document.getElementById('login-email').addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('login-pw').focus();
+      });
+      document.getElementById('login-pw').addEventListener('keydown', e => {
+        if (e.key === 'Enter') validarLogin();
+      });
+      document.getElementById('rec-email').addEventListener('keydown', e => {
+        if (e.key === 'Enter') validarRecuperacion();
+      });
+    });
+  </script>
+</body>
+</html>

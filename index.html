@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ernesto Investing AI — SPBI</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #F8F9FC;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: #ffffff;
+      border-bottom: 2px solid #B8960C;
+      padding: 2rem 2rem 1.5rem;
+      text-align: center;
+    }
+
+    .logo-text {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: #B8960C;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0D2B5E;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    .team-badge {
+      display: inline-block;
+      margin-top: 12px;
+      background: #EEF3FB;
+      border: 1px solid #B5D4F4;
+      border-radius: 6px;
+      padding: 5px 16px;
+      font-size: 12px;
+      color: #0C447C;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      padding: 2.5rem 2rem;
+      max-width: 960px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #C8D6EC;
+      padding: 1.75rem 1.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      text-decoration: none;
+      transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: #B8960C;
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(13, 43, 94, 0.1);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #EEF3FB;
+      border: 1px solid #B5D4F4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0D2B5E;
+      font-size: 22px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0D2B5E;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .card-link {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #B8960C;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .footer {
+      border-top: 1px solid #E0E6F0;
+      padding: 1.25rem 2rem;
+      text-align: center;
+      font-size: 11px;
+      color: #999;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo-text">FISI · UNMSM · iDeSo 2026</div>
+    <div class="title">Ernesto Investing AI</div>
+    <div class="subtitle">Sistema de Predicción Bursátil Inteligente (SPBI)</div>
+    <div class="team-badge">Caballero &nbsp;·&nbsp; Gomez &nbsp;·&nbsp; Oliva &nbsp;·&nbsp; Rubio &nbsp;·&nbsp; Sánchez &nbsp;·&nbsp; Silva</div>
+  </header>
+
+  <main class="grid">
+
+    <a class="card" href="login.html">
+      <div class="card-icon"><i class="ti ti-lock"></i></div>
+      <div class="card-title">Autenticación</div>
+      <div class="card-desc">Inicio de sesión, registro y recuperación de cuenta con perfiles de inversor.</div>
+      <div class="card-link">Abrir módulo <i class="ti ti-arrow-right"></i></div>
+    </a>
+
+    <a class="card" href="dash_merc.html">
+      <div class="card-icon"><i class="ti ti-chart-candle"></i></div>
+      <div class="card-title">Dashboard de mercado</div>
+      <div class="card-desc">Velas japonesas interactivas, indicadores técnicos SMA/EMA/RSI y análisis de volumen.</div>
+      <div class="card-link">Abrir módulo <i class="ti ti-arrow-right"></i></div>
+    </a>
+
+    <a class="card" href="portafolio.html">
+      <div class="card-icon"><i class="ti ti-briefcase"></i></div>
+      <div class="card-title">Gestión de portafolio</div>
+      <div class="card-desc">Visualización de activos, métricas de rendimiento y resultados de backtesting.</div>
+      <div class="card-link">Abrir módulo <i class="ti ti-arrow-right"></i></div>
+    </a>
+
+    <a class="card" href="dash_integral.html">
+      <div class="card-icon"><i class="ti ti-layout-dashboard"></i></div>
+      <div class="card-title">Dashboard integral</div>
+      <div class="card-desc">Vista consolidada con modelos ML, clasificador SVC y predicciones LSTM.</div>
+      <div class="card-link">Abrir módulo <i class="ti ti-arrow-right"></i></div>
+    </a>
+
+  </main>
+
+  <footer class="footer">
+    Introducción al Desarrollo de Software &nbsp;·&nbsp; Prof. Mg. Ernesto D. Cancho-Rodríguez &nbsp;·&nbsp; DAISW · FISI · UNMSM
+  </footer>
+
+</body>
+</html>

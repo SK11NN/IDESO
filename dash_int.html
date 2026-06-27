@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InvestAI — Sistema de Predicción Bursátil</title>
+
+  <!-- Plotly.js via CDN -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+  <style>
+    /* =============================================
+       VARIABLES Y RESET
+    ============================================= */
+    :root {
+      --azul-oscuro:   #1F3864;
+      --dorado:        #C5961A;
+      --rojo-vino:     #800000;
+      --fondo:         #F8F9FA;
+      --superficie:    #FFFFFF;
+      --borde:         #DEE2E6;
+      --texto-suave:   #6C757D;
+      --verde:         #1A7A4A;
+      --rojo-alerta:   #C0392B;
+      --navbar-h:      58px;
+      --radius:        8px;
+      --sombra:        0 2px 8px rgba(31,56,100,0.10);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--fondo);
+      color: #212529;
+      min-height: 100vh;
+    }
+
+    /* =============================================
+       BARRA DE NAVEGACIÓN
+    ============================================= */
+    #navbar {
+      height: var(--navbar-h);
+      background: var(--azul-oscuro);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: var(--dorado);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 900; color: var(--azul-oscuro);
+    }
+    .logo-text {
+      font-size: 18px; font-weight: 800;
+      color: #FFFFFF; letter-spacing: 0.5px;
+    }
+    .logo-text span { color: var(--dorado); }
+
+    /* Controles de la barra */
+    .nav-controls {
+      display: flex; align-items: center;
+      gap: 10px; flex: 1; flex-wrap: wrap;
+    }
+
+    .nav-label {
+      font-size: 11px; color: #A0B4CC;
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.6px; white-space: nowrap;
+    }
+
+    .nav-select, .nav-input {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #FFFFFF; border-radius: 5px;
+      padding: 5px 10px; font-size: 13px;
+      cursor: pointer; outline: none;
+    }
+    .nav-select:hover, .nav-input:hover {
+      background: rgba(255,255,255,0.18);
+    }
+    .nav-select option { background: var(--azul-oscuro); }
+
+    /* Separador vertical */
+    .nav-sep {
+      width: 1px; height: 24px;
+      background: rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+
+    /* Botón principal */
+    .btn-ejecutar {
+      background: var(--dorado);
+      color: var(--azul-oscuro);
+      border: none; border-radius: 6px;
+      padding: 7px 18px; font-size: 13px;
+      font-weight: 700; cursor: pointer;
+      transition: opacity .2s, transform .1s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-ejecutar:hover  { opacity: .88; }
+    .btn-ejecutar:active { transform: scale(.97); }
+
+    /* Indicador de conexión broker */
+    .broker-status {
+      display: flex; align-items: center;
+      gap: 6px; margin-left: auto; flex-shrink: 0;
+    }
+    .broker-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #2ECC71;
+      box-shadow: 0 0 7px #2ECC71;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; } 50% { opacity: .45; }
+    }
+    .broker-label {
+      font-size: 12px; color: #A0B4CC;
+    }
+
+    /* =============================================
+       CONTENEDOR PRINCIPAL (CSS Grid 12 col)
+    ============================================= */
+    #main-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: auto auto;
+      gap: 14px;
+      padding: 14px;
+      max-width: 1920px;
+      margin: 0 auto;
+    }
+
+    /* Panel card base */
+    .card {
+      background: var(--superficie);
+      border-radius: var(--radius);
+      box-shadow: var(--sombra);
+      border: 1px solid var(--borde);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 10px 16px;
+      border-bottom: 2px solid var(--azul-oscuro);
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
+    }
+    .card-title {
+      font-size: 12px; font-weight: 700;
+      color: var(--azul-oscuro); text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+    .card-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+      background: var(--azul-oscuro); color: #fff;
+    }
+    .card-body { padding: 12px; }
+
+    /* =============================================
+       LAYOUT DE PANELES
+    ============================================= */
+
+    /* Fila superior: candlestick (8 col) + panel lateral (4 col) */
+    #panel-candlestick  { grid-column: span 8; min-height: 440px; }
+    #panel-lateral      { grid-column: span 4; min-height: 440px; }
+
+    /* Fila inferior: backtesting completo (12 col) */
+    #panel-backtesting  { grid-column: span 12; }
+
+    /* =============================================
+       PANEL LATERAL — MODELOS / SEMÁFORO
+    ============================================= */
+    .lateral-inner {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 12px;
+    }
+
+    /* Semáforo de señal */
+    .semaforo-box {
+      border-radius: var(--radius);
+      border: 2px solid var(--borde);
+      padding: 14px;
+      text-align: center;
+    }
+    .semaforo-label {
+      font-size: 10px; color: var(--texto-suave);
+      text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .semaforo-signal {
+      font-size: 28px; font-weight: 900;
+      letter-spacing: 2px;
+    }
+    .signal-buy  { color: var(--verde); }
+    .signal-sell { color: var(--rojo-vino); }
+    .signal-hold { color: var(--dorado); }
+
+    .semaforo-luces {
+      display: flex; justify-content: center; gap: 10px; margin-top: 8px;
+    }
+    .luz {
+      width: 14px; height: 14px; border-radius: 50%;
+      opacity: .2; transition: opacity .3s;
+    }
+    .luz.activa { opacity: 1; box-shadow: 0 0 8px currentColor; }
+    .luz-verde  { background: #2ECC71; color: #2ECC71; }
+    .luz-amarilla { background: #F1C40F; color: #F1C40F; }
+    .luz-roja   { background: var(--rojo-vino); color: var(--rojo-vino); }
+
+    .confianza-row {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-top: 8px;
+    }
+    .confianza-label { font-size: 11px; color: var(--texto-suave); }
+    .confianza-bar-wrap {
+      flex: 1; height: 6px; background: var(--borde);
+      border-radius: 3px; margin: 0 8px;
+    }
+    .confianza-bar {
+      height: 100%; border-radius: 3px;
+      background: var(--verde);
+    }
+    .confianza-pct { font-size: 11px; font-weight: 700; color: var(--verde); }
+
+    /* Checkboxes de modelos */
+    .modelos-lista {
+      display: flex; flex-direction: column; gap: 4px;
+      max-height: 130px; overflow-y: auto;
+    }
+    .modelo-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 6px; border-radius: 5px;
+      cursor: pointer; font-size: 12px;
+      transition: background .15s;
+    }
+    .modelo-item:hover { background: var(--fondo); }
+    .modelo-item input[type=checkbox] { accent-color: var(--azul-oscuro); }
+    .modelo-nombre { flex: 1; color: #333; }
+    .modelo-acc {
+      font-size: 11px; font-weight: 700; padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .acc-alto { background: #D4EDDA; color: var(--verde); }
+    .acc-med  { background: #FFF3CD; color: #856404; }
+    .acc-bajo { background: #F8D7DA; color: var(--rojo-alerta); }
+
+    /* Tabla compacta de métricas por modelo */
+    .tabla-modelos {
+      width: 100%; border-collapse: collapse; font-size: 11px;
+    }
+    .tabla-modelos th {
+      background: var(--azul-oscuro); color: #fff;
+      padding: 5px 7px; text-align: left;
+      font-weight: 600; letter-spacing: .4px;
+    }
+    .tabla-modelos td {
+      padding: 4px 7px; border-bottom: 1px solid var(--borde);
+    }
+    .tabla-modelos tr:hover td { background: #F0F4FF; }
+    .metric-good { color: var(--verde); font-weight: 700; }
+    .metric-bad  { color: var(--rojo-alerta); font-weight: 700; }
+
+    /* =============================================
+       PANEL INFERIOR — BACKTESTING
+    ============================================= */
+    .backtesting-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 14px;
+      padding: 12px;
+    }
+
+    /* Métricas del portafolio */
+    .metricas-port {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .metrica-card {
+      background: var(--fondo); border-radius: 6px;
+      border: 1px solid var(--borde);
+      padding: 10px 12px;
+    }
+    .metrica-nombre {
+      font-size: 10px; color: var(--texto-suave);
+      text-transform: uppercase; letter-spacing: .6px;
+      margin-bottom: 3px;
+    }
+    .metrica-valor {
+      font-size: 20px; font-weight: 800;
+      color: var(--azul-oscuro);
+    }
+    .metrica-valor.pos { color: var(--verde); }
+    .metrica-valor.neg { color: var(--rojo-vino); }
+    .metrica-sub {
+      font-size: 10px; color: var(--texto-suave); margin-top: 1px;
+    }
+
+    /* =============================================
+       RESPONSIVO — TABLET / MÓVIL
+    ============================================= */
+    @media (max-width: 1100px) {
+      #panel-candlestick { grid-column: span 12; min-height: 380px; }
+      #panel-lateral     { grid-column: span 12; min-height: auto; }
+      .backtesting-grid  { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 680px) {
+      #navbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }
+      #main-grid { gap: 8px; padding: 8px; }
+      .backtesting-grid { grid-template-columns: 1fr; }
+      .metricas-port    { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================================================
+     BARRA DE NAVEGACIÓN
+================================================= -->
+<nav id="navbar">
+
+  <!-- Logo -->
+  <a href="#" class="logo">
+    <div class="logo-icon">AI</div>
+    <span class="logo-text">Invest<span>AI</span></span>
+  </a>
+
+  <div class="nav-sep"></div>
+
+  <div class="nav-controls">
+    <!-- Selector de ticker -->
+    <span class="nav-label">Ticker</span>
+    <select class="nav-select" id="sel-ticker" onchange="actualizarTicker()">
+      <option value="AAPL" selected>AAPL</option>
+      <option value="MSFT">MSFT</option>
+      <option value="GOOGL">GOOGL</option>
+      <option value="TSLA">TSLA</option>
+      <option value="NVDA">NVDA</option>
+    </select>
+
+    <div class="nav-sep"></div>
+
+    <!-- Selector de período -->
+    <span class="nav-label">Período</span>
+    <select class="nav-select" id="sel-periodo">
+      <option value="1m">1 Mes</option>
+      <option value="3m" selected>3 Meses</option>
+      <option value="6m">6 Meses</option>
+      <option value="1y">1 Año</option>
+    </select>
+
+    <div class="nav-sep"></div>
+
+    <!-- Botón ejecutar -->
+    <button class="btn-ejecutar" onclick="ejecutarAnalisis()">⚡ Ejecutar Análisis</button>
+  </div>
+
+  <!-- Indicador broker -->
+  <div class="broker-status">
+    <div class="broker-dot" id="broker-dot"></div>
+    <span class="broker-label" id="broker-label">Alpaca · Conectado</span>
+  </div>
+
+</nav>
+
+
+<!-- ================================================
+     GRID PRINCIPAL
+================================================= -->
+<div id="main-grid">
+
+  <!-- ==========================================
+       PANEL 1: CANDLESTICK + PREDICCIONES LSTM
+  =========================================== -->
+  <div class="card" id="panel-candlestick">
+    <div class="card-header">
+      <span class="card-title">📈 Candlestick · AAPL — Predicciones LSTM + Señales</span>
+      <span class="card-badge" id="badge-ticker">AAPL · NASDAQ</span>
+    </div>
+    <div id="grafico-candlestick" style="height:390px;"></div>
+  </div>
+
+  <!-- ==========================================
+       PANEL 2: LATERAL DERECHO
+  =========================================== -->
+  <div class="card" id="panel-lateral">
+    <div class="card-header">
+      <span class="card-title">🤖 Core de IA · Modelos</span>
+      <span class="card-badge">14 activos</span>
+    </div>
+    <div class="lateral-inner">
+
+      <!-- Semáforo de señal consolidada -->
+      <div class="semaforo-box">
+        <div class="semaforo-label">Señal Consolidada</div>
+        <div class="semaforo-signal signal-buy">BUY</div>
+        <div class="semaforo-luces">
+          <div class="luz luz-verde activa"></div>
+          <div class="luz luz-amarilla"></div>
+          <div class="luz luz-roja"></div>
+        </div>
+        <div class="confianza-row" style="margin-top:10px;">
+          <span class="confianza-label">Confianza</span>
+          <div class="confianza-bar-wrap">
+            <div class="confianza-bar" style="width:78%;"></div>
+          </div>
+          <span class="confianza-pct">78%</span>
+        </div>
+      </div>
+
+      <!-- Checkboxes de modelos activos -->
+      <div>
+        <div class="card-title" style="margin-bottom:6px;">Modelos Activos</div>
+        <div class="modelos-lista" id="lista-modelos">
+          <!-- generado por JS -->
+        </div>
+      </div>
+
+      <!-- Tabla de métricas por modelo -->
+      <div>
+        <div class="card-title" style="margin-bottom:6px;">Métricas en Tiempo Real</div>
+        <div style="overflow-x:auto;">
+          <table class="tabla-modelos" id="tabla-metricas">
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Accuracy</th>
+                <th>RMSE</th>
+                <th>Señal</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-metricas">
+              <!-- generado por JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==========================================
+       PANEL 3: BACKTESTING (fila inferior)
+  =========================================== -->
+  <div class="card" id="panel-backtesting">
+    <div class="card-header">
+      <span class="card-title">📊 Backtesting · VectorBT — Curva de Equity · Retornos · Métricas</span>
+      <span class="card-badge">Período: 3M · Capital: $100 000</span>
+    </div>
+    <div class="backtesting-grid">
+
+      <!-- Curva de equity -->
+      <div>
+        <div id="grafico-equity" style="height:260px;"></div>
+      </div>
+
+      <!-- Histograma de retornos -->
+      <div>
+        <div id="grafico-histograma" style="height:260px;"></div>
+      </div>
+
+      <!-- Métricas del portafolio -->
+      <div>
+        <div class="card-title" style="margin-bottom:10px;">Métricas del Portafolio</div>
+        <div class="metricas-port">
+          <div class="metrica-card">
+            <div class="metrica-nombre">Sharpe Ratio</div>
+            <div class="metrica-valor pos">1.84</div>
+            <div class="metrica-sub">↑ vs SPY 1.12</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Sortino Ratio</div>
+            <div class="metrica-valor pos">2.31</div>
+            <div class="metrica-sub">↑ Muy bueno</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Max Drawdown</div>
+            <div class="metrica-valor neg">−8.4%</div>
+            <div class="metrica-sub">22 días</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Win Rate</div>
+            <div class="metrica-valor pos">67.3%</div>
+            <div class="metrica-sub">124 / 184 trades</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Retorno Total</div>
+            <div class="metrica-valor pos">+23.7%</div>
+            <div class="metrica-sub">vs SPY +9.2%</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Profit Factor</div>
+            <div class="metrica-valor pos">2.06</div>
+            <div class="metrica-sub">Ganancia/Pérd.</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Avg. Trade</div>
+            <div class="metrica-valor pos">+$128</div>
+            <div class="metrica-sub">Duración 2.1 d</div>
+          </div>
+          <div class="metrica-card">
+            <div class="metrica-nombre">Volatilidad</div>
+            <div class="metrica-valor" style="font-size:18px;">12.8%</div>
+            <div class="metrica-sub">Anualizada</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.backtesting-grid -->
+  </div>
+
+</div><!-- /#main-grid -->
+
+
+<script>
+/* =====================================================
+   DATOS SIMULADOS REALISTAS PARA AAPL (90 días)
+   Generados con variación aleatoria semilla-fija tipo walk
+====================================================== */
+
+// Utilidades básicas
+function seed(s){ let x=s; return ()=>{ x=(x*1664525+1013904223)&0xFFFFFFFF; return (x>>>0)/0xFFFFFFFF; }; }
+const rng = seed(42);
+
+function fechas(dias) {
+  const arr = [];
+  const hoy = new Date(2025, 2, 14); // 14-Mar-2025
+  for (let i = dias - 1; i >= 0; i--) {
+    const d = new Date(hoy); d.setDate(hoy.getDate() - i);
+    if (d.getDay() !== 0 && d.getDay() !== 6)
+      arr.push(d.toISOString().split('T')[0]);
+  }
+  return arr;
+}
+
+function generarOHLCV(inicio, dias) {
+  const fechasArr = fechas(dias);
+  const N = fechasArr.length;
+  const open=[],high=[],low=[],close=[],vol=[];
+  let precio = inicio;
+  for (let i = 0; i < N; i++) {
+    const cambio = (rng()-0.48)*3.2;
+    const o = +(precio + (rng()-0.5)*0.8).toFixed(2);
+    const c = +(o + cambio).toFixed(2);
+    const h = +(Math.max(o,c) + rng()*2.5).toFixed(2);
+    const l = +(Math.min(o,c) - rng()*2.5).toFixed(2);
+    const v = Math.round(30e6 + (rng()-0.5)*20e6);
+    open.push(o); high.push(h); low.push(l); close.push(c); vol.push(v);
+    precio = c;
+  }
+  return { fechas: fechasArr, open, high, low, close, vol };
+}
+
+// AAPL simulado desde ~$170
+const datos = generarOHLCV(170, 130);
+const N = datos.fechas.length;
+
+// Predicción LSTM: media móvil suavizada + ruido pequeño
+function predLSTM() {
+  const pred = [];
+  for (let i = 0; i < N; i++) {
+    const base = datos.close[i];
+    const ruido = (rng()-0.48)*1.2;
+    pred.push(+(base + ruido + (i > 10 ? 0.08*(datos.close[i]-datos.close[i-10]) : 0)).toFixed(2));
+  }
+  return pred;
+}
+const prediccion = predLSTM();
+
+// Señales BUY/SELL basadas en cruce
+function generarSenales() {
+  const buy_x=[], buy_y=[], sell_x=[], sell_y=[];
+  for (let i = 5; i < N; i++) {
+    if (prediccion[i] > prediccion[i-1] && datos.close[i] < prediccion[i] && rng() > 0.72) {
+      buy_x.push(datos.fechas[i]); buy_y.push(datos.low[i] - 1.5);
+    }
+    if (prediccion[i] < prediccion[i-1] && datos.close[i] > prediccion[i] && rng() > 0.75) {
+      sell_x.push(datos.fechas[i]); sell_y.push(datos.high[i] + 1.5);
+    }
+  }
+  return { buy_x, buy_y, sell_x, sell_y };
+}
+const senales = generarSenales();
+
+// Curva de equity
+function generarEquity() {
+  const equity=[100000], fechasEq=[];
+  for (let i = 1; i < N; i++) {
+    const ret = (datos.close[i]-datos.close[i-1])/datos.close[i-1];
+    const estrategia = ret * (1 + 0.4*rng()); // alpha simulado
+    equity.push(+(equity[equity.length-1] * (1 + estrategia)).toFixed(2));
+    fechasEq.push(datos.fechas[i]);
+  }
+  return { fechas: [datos.fechas[0], ...fechasEq], equity };
+}
+const eq = generarEquity();
+
+// Retornos de trades
+function generarRetornos() {
+  const rets = [];
+  for (let i = 0; i < 184; i++) {
+    const r = (rng()-0.4)*6; // sesgo positivo
+    rets.push(+r.toFixed(2));
+  }
+  return rets;
+}
+const retornos = generarRetornos();
+
+/* =====================================================
+   DATOS DE MODELOS DE IA
+====================================================== */
+const MODELOS = [
+  { nombre: 'LSTM Bivariante', acc: 84.2, rmse: 1.14, senal: 'BUY' },
+  { nombre: 'GRU Profundo',    acc: 81.7, rmse: 1.32, senal: 'BUY' },
+  { nombre: 'Transformer',     acc: 87.5, rmse: 0.98, senal: 'BUY' },
+  { nombre: 'CNN-LSTM',        acc: 79.3, rmse: 1.55, senal: 'HOLD'},
+  { nombre: 'XGBoost',         acc: 76.8, rmse: 1.87, senal: 'BUY' },
+  { nombre: 'Random Forest',   acc: 74.1, rmse: 2.01, senal: 'HOLD'},
+  { nombre: 'LightGBM',        acc: 77.4, rmse: 1.77, senal: 'BUY' },
+  { nombre: 'Prophet',         acc: 71.2, rmse: 2.34, senal: 'SELL'},
+  { nombre: 'ARIMA-GARCH',     acc: 68.5, rmse: 2.61, senal: 'HOLD'},
+  { nombre: 'TCN',             acc: 82.9, rmse: 1.28, senal: 'BUY' },
+  { nombre: 'N-BEATS',         acc: 83.6, rmse: 1.19, senal: 'BUY' },
+  { nombre: 'Ensemble MLP',    acc: 78.8, rmse: 1.66, senal: 'BUY' },
+  { nombre: 'WaveNet',         acc: 80.4, rmse: 1.41, senal: 'BUY' },
+  { nombre: 'Attention BiGRU', acc: 86.1, rmse: 1.03, senal: 'BUY' },
+];
+
+/* =====================================================
+   RENDER: LISTA DE MODELOS (CHECKBOXES)
+====================================================== */
+function renderModelos() {
+  const lista = document.getElementById('lista-modelos');
+  lista.innerHTML = MODELOS.map((m, i) => {
+    const cls = m.acc >= 80 ? 'acc-alto' : m.acc >= 74 ? 'acc-med' : 'acc-bajo';
+    return `<label class="modelo-item">
+      <input type="checkbox" ${i < 12 ? 'checked' : ''}>
+      <span class="modelo-nombre">${m.nombre}</span>
+      <span class="modelo-acc ${cls}">${m.acc}%</span>
+    </label>`;
+  }).join('');
+}
+
+/* =====================================================
+   RENDER: TABLA DE MÉTRICAS
+====================================================== */
+function renderTablaMetricas() {
+  const tbody = document.getElementById('tbody-metricas');
+  tbody.innerHTML = MODELOS.slice(0, 8).map(m => {
+    const accCls = m.acc >= 80 ? 'metric-good' : m.acc >= 74 ? '' : 'metric-bad';
+    const rmseCls = m.rmse <= 1.5 ? 'metric-good' : m.rmse <= 2.0 ? '' : 'metric-bad';
+    const sColor = m.senal==='BUY'?'#1A7A4A': m.senal==='SELL'?'#800000':'#C5961A';
+    return `<tr>
+      <td>${m.nombre.split(' ')[0]}</td>
+      <td class="${accCls}">${m.acc}%</td>
+      <td class="${rmseCls}">${m.rmse}</td>
+      <td style="font-weight:700;color:${sColor}">${m.senal}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* =====================================================
+   GRÁFICO 1: CANDLESTICK + LSTM + SEÑALES
+====================================================== */
+function graficoCandlestick() {
+  const traceCandlestick = {
+    type: 'candlestick',
+    name: 'AAPL',
+    x: datos.fechas,
+    open: datos.open, high: datos.high,
+    low: datos.low,   close: datos.close,
+    increasing: { line: { color: '#1A7A4A', width: 1 }, fillcolor: '#D4EDDA' },
+    decreasing: { line: { color: '#800000', width: 1 }, fillcolor: '#F8D7DA' },
+    whiskerwidth: 0.3,
+  };
+
+  const traceLSTM = {
+    type: 'scatter', mode: 'lines',
+    name: 'Predicción LSTM',
+    x: datos.fechas, y: prediccion,
+    line: { color: '#C5961A', width: 2, dash: 'dot' },
+  };
+
+  const traceBUY = {
+    type: 'scatter', mode: 'markers',
+    name: 'Señal BUY',
+    x: senales.buy_x, y: senales.buy_y,
+    marker: {
+      symbol: 'triangle-up', size: 12,
+      color: '#1A7A4A', line: { color: '#fff', width: 1 }
+    },
+  };
+
+  const traceSELL = {
+    type: 'scatter', mode: 'markers',
+    name: 'Señal SELL',
+    x: senales.sell_x, y: senales.sell_y,
+    marker: {
+      symbol: 'triangle-down', size: 12,
+      color: '#800000', line: { color: '#fff', width: 1 }
+    },
+  };
+
+  const layout = {
+    template: 'plotly_white',
+    margin: { t: 10, b: 40, l: 55, r: 10 },
+    xaxis: {
+      rangeslider: { visible: false },
+      type: 'date',
+      gridcolor: '#EEF1F5',
+      linecolor: '#DEE2E6',
+    },
+    yaxis: {
+      title: { text: 'Precio (USD)', font: { size: 11 } },
+      gridcolor: '#EEF1F5',
+      tickprefix: '$',
+    },
+    legend: {
+      orientation: 'h', y: -0.12, x: 0,
+      font: { size: 11 },
+    },
+    paper_bgcolor: 'white', plot_bgcolor: 'white',
+    font: { family: 'Segoe UI, system-ui, sans-serif', size: 12 },
+  };
+
+  Plotly.newPlot('grafico-candlestick',
+    [traceCandlestick, traceLSTM, traceBUY, traceSELL],
+    layout, { responsive: true, displayModeBar: false }
+  );
+}
+
+/* =====================================================
+   GRÁFICO 2: CURVA DE EQUITY
+====================================================== */
+function graficoEquity() {
+  // Benchmark SPY (simulado)
+  const spy = [100000];
+  for (let i = 1; i < eq.equity.length; i++) {
+    const ret = (datos.close[i]-datos.close[i-1])/datos.close[i-1] * 0.65;
+    spy.push(+(spy[spy.length-1]*(1+ret)).toFixed(2));
+  }
+
+  const traceEq = {
+    type: 'scatter', mode: 'lines', fill: 'tozeroy',
+    name: 'InvestAI Strategy',
+    x: eq.fechas, y: eq.equity,
+    line: { color: '#1F3864', width: 2.5 },
+    fillcolor: 'rgba(31,56,100,0.08)',
+  };
+
+  const traceSPY = {
+    type: 'scatter', mode: 'lines',
+    name: 'SPY Benchmark',
+    x: eq.fechas, y: spy,
+    line: { color: '#C5961A', width: 1.5, dash: 'dash' },
+  };
+
+  const layout = {
+    template: 'plotly_white',
+    title: { text: 'Curva de Equity', font: { size: 12, color: '#1F3864' } },
+    margin: { t: 32, b: 35, l: 60, r: 10 },
+    xaxis: { gridcolor: '#EEF1F5', linecolor: '#DEE2E6', type: 'date' },
+    yaxis: {
+      gridcolor: '#EEF1F5',
+      tickprefix: '$',
+      tickformat: ',.0f',
+    },
+    legend: { font: { size: 10 }, orientation: 'h', y: -0.18 },
+    paper_bgcolor: 'white', plot_bgcolor: 'white',
+    font: { family: 'Segoe UI, system-ui, sans-serif', size: 11 },
+  };
+
+  Plotly.newPlot('grafico-equity', [traceEq, traceSPY], layout,
+    { responsive: true, displayModeBar: false });
+}
+
+/* =====================================================
+   GRÁFICO 3: HISTOGRAMA DE RETORNOS
+====================================================== */
+function graficoHistograma() {
+  const traceHist = {
+    type: 'histogram',
+    name: 'Retornos',
+    x: retornos,
+    nbinsx: 28,
+    marker: {
+      color: retornos.map(r => r >= 0 ? 'rgba(26,122,74,0.75)' : 'rgba(128,0,0,0.65)'),
+      line: { color: 'white', width: 0.5 }
+    },
+    autobinx: false,
+  };
+
+  // Línea de media
+  const media = (retornos.reduce((a,b)=>a+b,0)/retornos.length).toFixed(2);
+
+  const layout = {
+    template: 'plotly_white',
+    title: { text: 'Histograma de Retornos', font: { size: 12, color: '#1F3864' } },
+    margin: { t: 32, b: 35, l: 45, r: 10 },
+    xaxis: {
+      title: { text: 'Retorno (%)', font: { size: 11 } },
+      gridcolor: '#EEF1F5',
+    },
+    yaxis: {
+      title: { text: 'Frecuencia', font: { size: 11 } },
+      gridcolor: '#EEF1F5',
+    },
+    shapes: [{
+      type: 'line',
+      x0: media, x1: media, y0: 0, y1: 1,
+      yref: 'paper',
+      line: { color: '#C5961A', width: 2, dash: 'dot' }
+    }],
+    annotations: [{
+      x: +media, y: 0.95, yref: 'paper',
+      text: `Media: ${media}%`, showarrow: false,
+      font: { size: 10, color: '#C5961A' }, bgcolor: 'white',
+      bordercolor: '#C5961A', borderwidth: 1,
+    }],
+    paper_bgcolor: 'white', plot_bgcolor: 'white',
+    font: { family: 'Segoe UI, system-ui, sans-serif', size: 11 },
+    showlegend: false,
+  };
+
+  Plotly.newPlot('grafico-histograma', [traceHist], layout,
+    { responsive: true, displayModeBar: false });
+}
+
+/* =====================================================
+   SIMULACIÓN: "EJECUTAR ANÁLISIS"
+   Regen datos + redraw gráficos con animación flash
+====================================================== */
+function ejecutarAnalisis() {
+  const btn = document.querySelector('.btn-ejecutar');
+  btn.textContent = '⏳ Analizando…';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    // Simular nueva actualización (en prod haría fetch a backend)
+    graficoCandlestick();
+    graficoEquity();
+    graficoHistograma();
+    btn.textContent = '⚡ Ejecutar Análisis';
+    btn.disabled = false;
+
+    // Flash visual de confirmación
+    btn.style.background = '#1A7A4A';
+    btn.style.color = '#fff';
+    setTimeout(() => {
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 900);
+  }, 1400);
+}
+
+/* =====================================================
+   ACTUALIZAR TICKER (navbar)
+====================================================== */
+function actualizarTicker() {
+  const ticker = document.getElementById('sel-ticker').value;
+  document.getElementById('badge-ticker').textContent = `${ticker} · NASDAQ`;
+  // En producción: re-fetch datos por ticker
+}
+
+/* =====================================================
+   INICIALIZACIÓN
+====================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+  renderModelos();
+  renderTablaMetricas();
+  graficoCandlestick();
+  graficoEquity();
+  graficoHistograma();
+});
+</script>
+</body>
+</html>
