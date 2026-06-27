@@ -1,2 +1,1 @@
-# IDESO
-Trabajo de Frontend/Backend
+# Proyecto Ernesto Investing AI
