@@ -74,6 +74,8 @@ Proyecto-Ernesto-Investing-AI/
 │   ├── NB2_SVC.ipynb
 │   ├── NB3_RNNs.ipynb
 │   └── NB4_LSTM.ipynb
+├── docs/
+│   ├── EQ1_Borrador Artículo SPBI.docx
 └── README.md
 ```
  
